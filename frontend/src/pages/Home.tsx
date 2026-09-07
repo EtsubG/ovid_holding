@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search, MapPin, Building2, Briefcase, ArrowRight, Sparkles,
-  Users, Award, Globe2, TrendingUp, Quote, ChevronRight,
+  Users, Award, Globe2, TrendingUp, Quote,
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
-import { vacancies, companies, departments, locations, getCompany, formatDate } from '@/lib/data';
+import { locations, departments, type Vacancy, type Company } from '@/lib/data';
+import * as api from '@/lib/api';
 import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const companyIcons: Record<string, typeof Building2> = {
   'ovid-realestate': Building2,
@@ -30,8 +32,31 @@ export function Home() {
   const [company, setCompany] = useState('all');
   const [location, setLocation] = useState('all');
   const [department, setDepartment] = useState('all');
+  const [vacancies, setVacancies] = useState<Vacancy[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const featuredJobs = useMemo(() => vacancies.filter((v) => v.featured).slice(0, 4), []);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [vacanciesData, companiesData] = await Promise.all([
+          api.getVacancies({ featured: true }),
+          api.getCompanies(),
+        ]);
+        setVacancies(vacanciesData);
+        setCompanies(companiesData);
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+        toast.error('Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const featuredJobs = vacancies.filter((v) => v.featured).slice(0, 4);
 
   const handleSearch = () => {
     navigate('vacancies', { search, company, location, department });
@@ -123,7 +148,7 @@ export function Home() {
           <div className="mx-auto mt-14 grid max-w-3xl grid-cols-2 gap-6 sm:grid-cols-4">
             {[
               { icon: Briefcase, label: 'Open Roles', value: `${vacancies.length}` },
-              { icon: Building2, label: 'Subsidiaries', value: '6' },
+              { icon: Building2, label: 'Subsidiaries', value: `${companies.length}` },
               { icon: Users, label: 'Team Members', value: '3,400+' },
               { icon: Globe2, label: 'Countries', value: '6' },
             ].map((stat) => (
@@ -150,11 +175,19 @@ export function Home() {
             View all <ArrowRight className="ml-1.5 h-4 w-4" />
           </Button>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {featuredJobs.map((job) => (
-            <JobCard key={job.id} vacancy={job} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-64 rounded-xl bg-muted animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {featuredJobs.map((job) => (
+              <JobCard key={job.id} vacancy={job} />
+            ))}
+          </div>
+        )}
         <div className="mt-6 text-center sm:hidden">
           <Button variant="outline" onClick={() => navigate('vacancies')}>
             View all vacancies <ArrowRight className="ml-1.5 h-4 w-4" />

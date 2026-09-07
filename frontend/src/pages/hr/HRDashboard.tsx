@@ -1,65 +1,93 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Users, Briefcase, TrendingUp, Clock, ArrowRight, FileText,
   CheckCircle2, Calendar, UserCheck,
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
 import { pipelineStages, getCompany, getVacancy, formatDate, type ApplicationStatus } from '@/lib/data';
+import * as api from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+
+interface DashboardStats {
+  total: number;
+  submitted: number;
+  underReview: number;
+  shortlisted: number;
+  interviews: number;
+  offers: number;
+  hired: number;
+  rejected: number;
+  pool: number;
+  conversionRate: number;
+}
 
 export function HRDashboard() {
   const { candidates, navigate, setSelectedCandidateId } = useApp();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const stats = useMemo(() => {
-    const byStatus = (s: ApplicationStatus) => candidates.filter((c) => c.status === s).length;
-    return {
-      total: candidates.length,
-      submitted: byStatus('Submitted'),
-      underReview: byStatus('Under Review'),
-      shortlisted: byStatus('Shortlisted'),
-      interviews: byStatus('Interview Scheduled'),
-      offers: byStatus('Offer Issued'),
-      hired: byStatus('Hired'),
-      rejected: byStatus('Rejected'),
-      pool: byStatus('Talent Pool'),
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const data = await api.getDashboardStats();
+        setStats(data);
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+        toast.error('Failed to load dashboard stats');
+      } finally {
+        setLoading(false);
+      }
     };
+    fetchStats();
   }, [candidates]);
 
-  const recent = useMemo(
-    () => [...candidates].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()).slice(0, 6),
-    [candidates]
-  );
+  const recent = [...candidates]
+    .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+    .slice(0, 6);
 
-  const stageDistribution = useMemo(() => {
-    return pipelineStages.map((s) => ({
-      ...s,
-      count: candidates.filter((c) => c.status === s.key).length,
-    }));
-  }, [candidates]);
+  const stageDistribution = pipelineStages.map((s) => ({
+    ...s,
+    count: candidates.filter((c) => c.status === s.key).length,
+  }));
 
   const openCandidate = (id: string) => setSelectedCandidateId(id);
 
-  const statCards = [
+  const statCards = stats ? [
     { label: 'Total Candidates', value: stats.total, icon: Users, color: 'text-primary' },
     { label: 'New Applications', value: stats.submitted, icon: FileText, color: 'text-blue-500' },
     { label: 'Under Review', value: stats.underReview + stats.shortlisted, icon: Clock, color: 'text-cyan-500' },
     { label: 'Interviews', value: stats.interviews, icon: Calendar, color: 'text-violet-500' },
     { label: 'Offers Issued', value: stats.offers + stats.hired, icon: CheckCircle2, color: 'text-emerald-500' },
     { label: 'Talent Pool', value: stats.pool, icon: UserCheck, color: 'text-teal-500' },
-  ];
+  ] : [];
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-48 bg-muted rounded" />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-24 bg-muted rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Header */}
       <div className="mb-8">
         <h1 className="font-serif text-3xl font-semibold tracking-tight">HR Dashboard</h1>
         <p className="mt-1 text-muted-foreground">Recruitment overview across all Ovid companies.</p>
       </div>
 
-      {/* Stat cards */}
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-6">
         {statCards.map((s) => (
           <Card key={s.label} className="p-4">
@@ -71,7 +99,6 @@ export function HRDashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Pipeline distribution */}
         <div className="lg:col-span-2">
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between">
@@ -82,7 +109,8 @@ export function HRDashboard() {
             </div>
             <div className="space-y-3">
               {stageDistribution.map((stage) => {
-                const pct = stats.total > 0 ? (stage.count / stats.total) * 100 : 0;
+                const total = stats?.total || 1;
+                const pct = total > 0 ? (stage.count / total) * 100 : 0;
                 return (
                   <div key={stage.key}>
                     <div className="mb-1 flex items-center justify-between text-sm">
@@ -102,13 +130,12 @@ export function HRDashboard() {
           </Card>
         </div>
 
-        {/* Quick stats sidebar */}
         <div className="space-y-4">
           <Card className="bg-primary p-6 text-primary-foreground">
             <TrendingUp className="mb-3 h-6 w-6 text-accent" />
             <h3 className="font-serif text-lg font-semibold">Conversion Rate</h3>
             <p className="mt-1 font-serif text-3xl font-bold text-accent">
-              {stats.total > 0 ? Math.round(((stats.offers + stats.hired) / stats.total) * 100) : 0}%
+              {stats?.conversionRate || 0}%
             </p>
             <p className="mt-1 text-xs text-primary-foreground/60">From application to offer</p>
           </Card>
@@ -130,7 +157,6 @@ export function HRDashboard() {
         </div>
       </div>
 
-      {/* Recent applications */}
       <div className="mt-6">
         <Card className="p-6">
           <div className="mb-4 flex items-center justify-between">

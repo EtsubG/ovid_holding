@@ -56,7 +56,6 @@ export function HRPipeline() {
               dragOverStage === col.key ? 'border-accent bg-accent/5' : 'border-border/60'
             )}
           >
-            {/* Column header */}
             <div className="flex items-center justify-between border-b border-border/60 px-3 py-3">
               <div className="flex items-center gap-2">
                 <div className={cn('h-2.5 w-2.5 rounded-full', col.color)} />
@@ -65,7 +64,6 @@ export function HRPipeline() {
               <Badge variant="secondary" className="font-normal">{col.candidates.length}</Badge>
             </div>
 
-            {/* Cards */}
             <div className="flex-1 space-y-2 overflow-y-auto p-2 scrollbar-thin" style={{ maxHeight: 'calc(100vh - 280px)' }}>
               {col.candidates.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">

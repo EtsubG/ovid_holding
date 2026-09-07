@@ -1,16 +1,36 @@
+import { useState, useEffect } from 'react';
 import { Building2, Target, Eye, Heart, Globe2, Users, TrendingUp, Sparkles } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
-import { companies } from '@/lib/data';
+import { type Company } from '@/lib/data';
+import * as api from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 export function About() {
   const { navigate } = useApp();
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        setLoading(true);
+        const data = await api.getCompanies();
+        setCompanies(data);
+      } catch (error) {
+        console.error('Failed to fetch companies:', error);
+        toast.error('Failed to load company data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCompanies();
+  }, []);
 
   return (
     <div>
-      {/* Hero */}
       <section className="relative overflow-hidden border-b border-border/60 bg-primary py-20 text-primary-foreground">
         <div className="absolute inset-0 bg-grain opacity-30" />
         <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-accent/15 blur-3xl" />
@@ -27,11 +47,10 @@ export function About() {
         </div>
       </section>
 
-      {/* Stats */}
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
           {[
-            { icon: Building2, value: '6', label: 'Subsidiary Companies' },
+            { icon: Building2, value: `${companies.length}`, label: 'Subsidiary Companies' },
             { icon: Users, value: '3,400+', label: 'Team Members' },
             { icon: Globe2, value: '6', label: 'Countries' },
             { icon: TrendingUp, value: '2009', label: 'Founded' },
@@ -45,7 +64,6 @@ export function About() {
         </div>
       </section>
 
-      {/* Mission / Vision / Values */}
       <section className="border-y border-border/60 bg-secondary/30">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <div className="grid gap-6 lg:grid-cols-3">
@@ -66,32 +84,39 @@ export function About() {
         </div>
       </section>
 
-      {/* Companies overview */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="mb-10 text-center">
           <p className="text-sm font-medium uppercase tracking-wider text-accent">Our Portfolio</p>
           <h2 className="mt-1 font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Six companies, one standard</h2>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {companies.map((c) => (
-            <Card key={c.id} className="p-6 transition-all hover:shadow-lg">
-              <div className="flex items-start justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary font-serif font-semibold">
-                  {c.shortName}
+        {loading ? (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-48 bg-muted animate-pulse rounded-xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {companies.map((c) => (
+              <Card key={c.id} className="p-6 transition-all hover:shadow-lg">
+                <div className="flex items-start justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary font-serif font-semibold">
+                    {c.shortName}
+                  </div>
+                  <span className="text-xs text-muted-foreground">{c.founded}</span>
                 </div>
-                <span className="text-xs text-muted-foreground">{c.founded}</span>
-              </div>
-              <h3 className="mt-4 font-serif text-lg font-semibold">{c.name}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{c.tagline}</p>
-              <p className="mt-3 text-xs leading-relaxed text-muted-foreground/80">{c.description}</p>
-              <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
-                <span>{c.industry}</span>
-                <span>·</span>
-                <span>{c.location}</span>
-              </div>
-            </Card>
-          ))}
-        </div>
+                <h3 className="mt-4 font-serif text-lg font-semibold">{c.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{c.tagline}</p>
+                <p className="mt-3 text-xs leading-relaxed text-muted-foreground/80">{c.description}</p>
+                <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
+                  <span>{c.industry}</span>
+                  <span>·</span>
+                  <span>{c.location}</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
         <div className="mt-8 text-center">
           <Button onClick={() => navigate('companies')} className="bg-accent text-accent-foreground hover:bg-accent/90">
             Explore Companies <Building2 className="ml-2 h-4 w-4" />

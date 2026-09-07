@@ -1,21 +1,58 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ArrowLeft, MapPin, Briefcase, Clock, Building2, Wallet, Calendar,
   CheckCircle2, FileText, AlertCircle, ArrowRight, Share2, Bookmark,
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
-import { getVacancy, getCompany, formatDate } from '@/lib/data';
+import { getCompany, formatDate, type Vacancy, type Company } from '@/lib/data';
+import * as api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ApplicationForm } from '@/components/ApplicationForm';
-import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 
 export function VacancyDetail() {
   const { params, navigate } = useApp();
-  const vacancy = useMemo(() => getVacancy(params.id), [params.id]);
+  const [vacancy, setVacancy] = useState<Vacancy | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
+  const [loading, setLoading] = useState(true);
   const [applyOpen, setApplyOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const vacancyData = await api.getVacancy(params.id);
+        setVacancy(vacancyData);
+        if (vacancyData?.companyId) {
+          const companyData = await api.getCompany(vacancyData.companyId);
+          setCompany(companyData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch vacancy:', error);
+        toast.error('Failed to load vacancy details');
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (params.id) {
+      fetchData();
+    }
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-32 bg-muted rounded" />
+          <div className="h-12 w-3/4 bg-muted rounded" />
+          <div className="h-24 bg-muted rounded" />
+        </div>
+      </div>
+    );
+  }
 
   if (!vacancy) {
     return (
@@ -28,11 +65,8 @@ export function VacancyDetail() {
     );
   }
 
-  const company = getCompany(vacancy.companyId);
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Breadcrumb */}
       <button
         onClick={() => navigate('vacancies')}
         className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -41,9 +75,7 @@ export function VacancyDetail() {
       </button>
 
       <div className="grid gap-8 lg:grid-cols-3">
-        {/* Main content */}
         <div className="lg:col-span-2">
-          {/* Header */}
           <div className="mb-6">
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary font-serif text-lg font-semibold">
@@ -68,13 +100,11 @@ export function VacancyDetail() {
 
           <Separator className="my-6" />
 
-          {/* Description */}
           <section className="mb-8">
             <h2 className="mb-3 font-serif text-xl font-semibold">Role Overview</h2>
             <p className="leading-relaxed text-muted-foreground">{vacancy.description}</p>
           </section>
 
-          {/* Responsibilities */}
           <section className="mb-8">
             <h2 className="mb-3 font-serif text-xl font-semibold">What You'll Do</h2>
             <ul className="space-y-2.5">
@@ -87,7 +117,6 @@ export function VacancyDetail() {
             </ul>
           </section>
 
-          {/* Requirements */}
           <section className="mb-8">
             <h2 className="mb-3 font-serif text-xl font-semibold">What You'll Need</h2>
             <ul className="space-y-2.5">
@@ -100,7 +129,6 @@ export function VacancyDetail() {
             </ul>
           </section>
 
-          {/* Preferred */}
           {vacancy.preferred.length > 0 && (
             <section className="mb-8">
               <h2 className="mb-3 font-serif text-xl font-semibold">Nice to Have</h2>
@@ -115,7 +143,6 @@ export function VacancyDetail() {
             </section>
           )}
 
-          {/* Documents checklist */}
           <section className="mb-8">
             <Card className="border-accent/30 bg-accent/5 p-5">
               <div className="mb-3 flex items-center gap-2">
@@ -139,7 +166,6 @@ export function VacancyDetail() {
           </section>
         </div>
 
-        {/* Sidebar - sticky apply */}
         <div className="lg:col-span-1">
           <div className="sticky top-20 space-y-4">
             <Card className="p-5">
@@ -188,16 +214,18 @@ export function VacancyDetail() {
               </div>
             </Card>
 
-            <Card className="bg-secondary/40 p-5">
-              <h4 className="mb-2 text-sm font-semibold">About {company?.name}</h4>
-              <p className="text-xs leading-relaxed text-muted-foreground">{company?.description}</p>
-              <button
-                onClick={() => navigate('companies', { id: company!.id })}
-                className="mt-3 flex items-center gap-1 text-xs font-medium text-accent hover:underline"
-              >
-                Learn more <ArrowRight className="h-3 w-3" />
-              </button>
-            </Card>
+            {company && (
+              <Card className="bg-secondary/40 p-5">
+                <h4 className="mb-2 text-sm font-semibold">About {company.name}</h4>
+                <p className="text-xs leading-relaxed text-muted-foreground">{company.description}</p>
+                <button
+                  onClick={() => navigate('companies', { id: company.id })}
+                  className="mt-3 flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+                >
+                  Learn more <ArrowRight className="h-3 w-3" />
+                </button>
+              </Card>
+            )}
           </div>
         </div>
       </div>

@@ -1,19 +1,63 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Building2, MapPin, Users, Calendar, ArrowRight, Briefcase } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
-import { companies, vacancies, getCompany } from '@/lib/data';
+import { getCompany, type Company, type Vacancy } from '@/lib/data';
+import * as api from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { JobCard } from '@/components/JobCard';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export function Companies() {
   const { params, navigate } = useApp();
-  const [selectedId, setSelectedId] = useState(params.id || companies[0].id);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [vacancies, setVacancies] = useState<Vacancy[]>([]);
+  const [selectedId, setSelectedId] = useState(params.id || '');
+  const [loading, setLoading] = useState(true);
 
-  const selected = useMemo(() => getCompany(selectedId), [selectedId]);
-  const companyVacancies = useMemo(() => vacancies.filter((v) => v.companyId === selectedId), [selectedId]);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [companiesData, vacanciesData] = await Promise.all([
+          api.getCompanies(),
+          api.getVacancies(),
+        ]);
+        setCompanies(companiesData);
+        setVacancies(vacanciesData);
+        if (!selectedId && companiesData.length > 0) {
+          setSelectedId(companiesData[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+        toast.error('Failed to load companies');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const selected = useMemo(() => companies.find((c) => c.id === selectedId), [companies, selectedId]);
+  const companyVacancies = useMemo(() => vacancies.filter((v) => v.companyId === selectedId), [vacancies, selectedId]);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-48 bg-muted rounded" />
+          <div className="h-12 w-64 bg-muted rounded" />
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-48 bg-muted rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -25,7 +69,6 @@ export function Companies() {
         </p>
       </div>
 
-      {/* Company selector tabs */}
       <div className="mb-8 flex flex-wrap gap-2">
         {companies.map((c) => (
           <button
@@ -45,7 +88,6 @@ export function Companies() {
 
       {selected && (
         <div className="grid gap-8 lg:grid-cols-3">
-          {/* Company detail */}
           <div className="lg:col-span-2">
             <Card className={cn('relative overflow-hidden border-0', 'bg-primary text-primary-foreground')}>
               <div className={cn('absolute inset-0 bg-gradient-to-br opacity-20', selected.accent)} />
@@ -82,7 +124,6 @@ export function Companies() {
               </div>
             </Card>
 
-            {/* Open positions */}
             <div className="mt-8">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="font-serif text-xl font-semibold">Open Positions at {selected.name}</h3>
@@ -106,7 +147,6 @@ export function Companies() {
             </div>
           </div>
 
-          {/* Sidebar - all companies */}
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-3">
               <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">All Companies</h4>

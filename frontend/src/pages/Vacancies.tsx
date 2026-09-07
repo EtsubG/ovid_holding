@@ -1,13 +1,15 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, SlidersHorizontal, X, MapPin, Building2, Briefcase, Inbox } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
-import { vacancies, companies, departments, locations, getCompany } from '@/lib/data';
+import { companies, departments, locations, getCompany, type Vacancy } from '@/lib/data';
+import * as api from '@/lib/api';
 import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 
 export function Vacancies() {
   const { params } = useApp();
@@ -17,21 +19,30 @@ export function Vacancies() {
   const [department, setDepartment] = useState(params.department || 'all');
   const [type, setType] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [vacancies, setVacancies] = useState<Vacancy[]>([]);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 400);
-    return () => clearTimeout(t);
-  }, []);
+    const fetchVacancies = async () => {
+      try {
+        setLoading(true);
+        const data = await api.getVacancies({
+          search: search || undefined,
+          company: company !== 'all' ? company : undefined,
+          location: location !== 'all' ? location : undefined,
+          department: department !== 'all' ? department : undefined,
+          type: type !== 'all' ? type : undefined,
+        });
+        setVacancies(data);
+      } catch (error) {
+        console.error('Failed to fetch vacancies:', error);
+        toast.error('Failed to load vacancies');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const filtered = useMemo(() => {
-    return vacancies.filter((v) => {
-      if (search && !v.title.toLowerCase().includes(search.toLowerCase()) && !v.summary.toLowerCase().includes(search.toLowerCase())) return false;
-      if (company !== 'all' && v.companyId !== company) return false;
-      if (location !== 'all' && v.location !== location) return false;
-      if (department !== 'all' && v.department !== department) return false;
-      if (type !== 'all' && v.type !== type) return false;
-      return true;
-    });
+    const timer = setTimeout(fetchVacancies, 300);
+    return () => clearTimeout(timer);
   }, [search, company, location, department, type]);
 
   const activeFilters = [company !== 'all' && company, location !== 'all' && location, department !== 'all' && department, type !== 'all' && type].filter(Boolean);
@@ -42,7 +53,6 @@ export function Vacancies() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      {/* Header */}
       <div className="mb-8">
         <p className="text-sm font-medium uppercase tracking-wider text-accent">Open Positions</p>
         <h1 className="mt-1 font-serif text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -53,7 +63,6 @@ export function Vacancies() {
         </p>
       </div>
 
-      {/* Search + Filters */}
       <div className="mb-6 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -112,7 +121,7 @@ export function Vacancies() {
 
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {loading ? 'Loading...' : `${filtered.length} ${filtered.length === 1 ? 'role' : 'roles'} found`}
+          {loading ? 'Loading...' : `${vacancies.length} ${vacancies.length === 1 ? 'role' : 'roles'} found`}
         </p>
       </div>
 
@@ -122,7 +131,7 @@ export function Vacancies() {
             <Skeleton key={i} className="h-64 rounded-xl" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : vacancies.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
           <Inbox className="mb-4 h-10 w-10 text-muted-foreground/50" />
           <h3 className="font-serif text-xl font-semibold">No matching roles</h3>
@@ -131,7 +140,7 @@ export function Vacancies() {
         </div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((job) => (
+          {vacancies.map((job) => (
             <JobCard key={job.id} vacancy={job} />
           ))}
         </div>

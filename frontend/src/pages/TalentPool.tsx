@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Users, Sparkles, CheckCircle2, ArrowRight, PartyPopper, Copy, Home } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, Sparkles, ArrowRight, PartyPopper, Copy, Home } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
 import {
-  companies, departments, locations, jobCategories, generateReference, type Candidate,
+  generateReference, type Candidate, type Company,
 } from '@/lib/data';
+import * as api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,11 @@ export function TalentPool() {
   const { addCandidate, navigate } = useApp();
   const [submitted, setSubmitted] = useState(false);
   const [reference, setReference] = useState('');
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [locations, setLocations] = useState<string[]>([]);
+  const [jobCategories, setJobCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
     fullName: '', email: '', phone: '', city: '',
     preferredCompany: '', department: '', jobCategory: '',
@@ -25,44 +31,95 @@ export function TalentPool() {
     expectedSalary: '', yearsExperience: '', coverNote: '',
   });
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [companiesData, deptsData, locsData, catsData] = await Promise.all([
+          api.getCompanies(),
+          api.getDepartments(),
+          api.getLocations(),
+          api.getJobCategories(),
+        ]);
+        setCompanies(companiesData);
+        setDepartments(deptsData);
+        setLocations(locsData);
+        setJobCategories(catsData);
+      } catch (error) {
+        console.error('Failed to fetch reference data:', error);
+        toast.error('Failed to load form data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   const set = (key: string, value: string) => setForm((p) => ({ ...p, [key]: value }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.fullName || !form.email || !form.phone) {
       toast.error('Please fill in your name, email, and phone.');
       return;
     }
-    const ref = generateReference();
-    setReference(ref);
-    const newCandidate: Candidate = {
-      id: `c-${Date.now()}`,
-      fullName: form.fullName,
-      email: form.email,
-      phone: form.phone,
-      city: form.city,
-      nationality: 'N/A',
-      highestQualification: 'N/A',
-      fieldOfStudy: 'N/A',
-      institution: 'N/A',
-      graduationYear: 'N/A',
-      cgpa: 'N/A',
-      currentStatus: 'N/A',
-      totalExperience: form.yearsExperience || 'N/A',
-      relevantExperience: 'N/A',
-      expectedSalary: form.expectedSalary || 'N/A',
-      availability: form.availability || 'N/A',
-      preferredCompany: form.preferredCompany,
-      preferredDepartment: form.department,
-      status: 'Talent Pool',
-      submittedAt: new Date().toISOString(),
-      documents: [{ name: `${form.fullName.replace(/\s/g, '_')}_CV.pdf`, type: 'PDF', size: '284 KB' }],
-      notes: [],
-      reference: ref,
-    };
-    addCandidate(newCandidate);
-    setSubmitted(true);
-    toast.success('Profile submitted to talent pool!');
+    try {
+      const result = await api.submitApplication({
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        city: form.city || 'N/A',
+        nationality: 'N/A',
+        qualification: 'N/A',
+        fieldOfStudy: 'N/A',
+        institution: 'N/A',
+        graduationYear: 'N/A',
+        cgpa: 'N/A',
+        currentStatus: 'N/A',
+        totalExperience: form.yearsExperience || 'N/A',
+        relevantExperience: 'N/A',
+        expectedSalary: form.expectedSalary || 'N/A',
+        availability: form.availability || 'N/A',
+        preferredCompany: form.preferredCompany,
+        preferredDepartment: form.department,
+        vacancyId: null,
+      });
+      
+      const ref = result.reference || generateReference();
+      setReference(ref);
+      
+      const newCandidate: Candidate = {
+        id: result.id || `c-${Date.now()}`,
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        city: form.city || 'N/A',
+        nationality: 'N/A',
+        highestQualification: 'N/A',
+        fieldOfStudy: 'N/A',
+        institution: 'N/A',
+        graduationYear: 'N/A',
+        cgpa: 'N/A',
+        currentStatus: 'N/A',
+        totalExperience: form.yearsExperience || 'N/A',
+        relevantExperience: 'N/A',
+        expectedSalary: form.expectedSalary || 'N/A',
+        availability: form.availability || 'N/A',
+        preferredCompany: form.preferredCompany,
+        preferredDepartment: form.department,
+        status: 'Talent Pool',
+        submittedAt: new Date().toISOString(),
+        documents: [{ name: `${form.fullName.replace(/\s/g, '_')}_CV.pdf`, type: 'PDF', size: '284 KB' }],
+        notes: [],
+        reference: ref,
+      };
+      addCandidate(newCandidate);
+      setSubmitted(true);
+      toast.success('Profile submitted to talent pool!');
+    } catch (error) {
+      console.error('Submission error:', error);
+      toast.error('Failed to submit profile. Please try again.');
+    }
   };
 
   if (submitted) {
@@ -92,6 +149,17 @@ export function TalentPool() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-48 bg-muted rounded mx-auto" />
+          <div className="h-64 bg-muted rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mb-8 text-center">
@@ -106,7 +174,6 @@ export function TalentPool() {
 
       <Card className="p-6 sm:p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Personal */}
           <section>
             <h2 className="mb-4 font-serif text-lg font-semibold">About You</h2>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -129,7 +196,6 @@ export function TalentPool() {
             </div>
           </section>
 
-          {/* Preferences */}
           <section>
             <h2 className="mb-4 font-serif text-lg font-semibold">Your Preferences</h2>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -218,7 +284,6 @@ export function TalentPool() {
             </div>
           </section>
 
-          {/* Cover note + CV */}
           <section>
             <h2 className="mb-4 font-serif text-lg font-semibold">Your CV</h2>
             <div className="mb-4">

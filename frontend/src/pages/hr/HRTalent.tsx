@@ -24,7 +24,6 @@ export function HRTalent() {
   const [department, setDepartment] = useState('all');
   const [location, setLocation] = useState('all');
   const [status, setStatus] = useState('all');
-  const [salaryFilter, setSalaryFilter] = useState('all');
 
   const filtered = useMemo(() => {
     return candidates.filter((c) => {
@@ -56,7 +55,6 @@ export function HRTalent() {
         <p className="mt-1 text-muted-foreground">Search and filter all candidates across the Ovid group.</p>
       </div>
 
-      {/* Filters */}
       <Card className="mb-6 p-4">
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
