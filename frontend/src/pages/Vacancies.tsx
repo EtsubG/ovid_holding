@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, SlidersHorizontal, X, MapPin, Building2, Briefcase, Inbox } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
-import { companies, departments, locations, getCompany, type Vacancy } from '@/lib/data';
+import { departments, locations, type Vacancy, type Company } from '@/lib/data';
 import * as api from '@/lib/api';
 import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,11 @@ export function Vacancies() {
   const [type, setType] = useState('all');
   const [loading, setLoading] = useState(true);
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+
+  useEffect(() => {
+    api.getCompanies().then((data) => setCompanies(data)).catch(console.error);
+  }, []);
 
   useEffect(() => {
     const fetchVacancies = async () => {
@@ -110,7 +115,9 @@ export function Vacancies() {
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Active filters:</span>
             {activeFilters.map((f) => (
-              <Badge key={f as string} variant="secondary" className="font-normal">{getCompany(f as string)?.name || f}</Badge>
+              <Badge key={f as string} variant="secondary" className="font-normal">
+                {companies.find((c) => c.id === f)?.name || f}
+              </Badge>
             ))}
             <button onClick={clearAll} className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
               <X className="h-3 w-3" /> Clear all

@@ -77,6 +77,9 @@ export interface Candidate {
   documents: { name: string; type: string; size: string }[];
   notes: { author: string; date: string; text: string }[];
   reference: string;
+  // Nested objects returned by the API via JOIN
+  company?: { id: string; name: string; shortName: string };
+  vacancy?: { id: string; title: string; department: string };
 }
 
 // Static reference data (these could also come from API, but kept as fallback)

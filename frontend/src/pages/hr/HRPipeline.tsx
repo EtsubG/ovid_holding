@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { GripVertical, MoreHorizontal, User, ArrowRight } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
-import { pipelineStages, getCompany, getVacancy, type ApplicationStatus } from '@/lib/data';
+import { pipelineStages, type ApplicationStatus } from '@/lib/data';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -72,8 +72,6 @@ export function HRPipeline() {
                 </div>
               ) : (
                 col.candidates.map((c) => {
-                  const company = getCompany(c.preferredCompany);
-                  const vacancy = c.vacancyId ? getVacancy(c.vacancyId) : undefined;
                   return (
                     <div
                       key={c.id}
@@ -124,10 +122,10 @@ export function HRPipeline() {
                           </DropdownMenu>
                         </div>
                       </div>
-                      {(vacancy || company) && (
+                      {(c.vacancy || c.company) && (
                         <div className="mt-2 border-t border-border/40 pt-2">
-                          {vacancy && <p className="truncate text-xs font-medium">{vacancy.title}</p>}
-                          {company && <p className="truncate text-xs text-muted-foreground">{company.name}</p>}
+                          {c.vacancy && <p className="truncate text-xs font-medium">{c.vacancy.title}</p>}
+                          {c.company && <p className="truncate text-xs text-muted-foreground">{c.company.name}</p>}
                         </div>
                       )}
                       <div className="mt-2 flex items-center gap-1.5">

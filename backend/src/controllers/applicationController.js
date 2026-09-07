@@ -24,10 +24,12 @@ exports.submitApplication = async (req, res) => {
       }
     }
     
-    // Check if company exists
-    const company = await Company.findByPk(value.preferredCompany);
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
+    // Check if company exists (only when a company was specified)
+    if (value.preferredCompany) {
+      const company = await Company.findByPk(value.preferredCompany);
+      if (!company) {
+        return res.status(404).json({ error: 'Company not found' });
+      }
     }
     
     const reference = generateReference();
@@ -52,7 +54,8 @@ exports.submitApplication = async (req, res) => {
       reference,
       documents,
       submittedAt: new Date(),
-      status: 'Submitted',
+      // Talent pool submissions (no vacancy) start in Talent Pool stage
+      status: value.vacancyId ? 'Submitted' : 'Talent Pool',
       notes: []
     });
     

@@ -4,26 +4,14 @@ import {
   CheckCircle2, Calendar, UserCheck,
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
-import { pipelineStages, getCompany, getVacancy, formatDate, type ApplicationStatus } from '@/lib/data';
+import { pipelineStages, formatDate, type ApplicationStatus } from '@/lib/data';
 import * as api from '@/lib/api';
+import type { DashboardStats } from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-
-interface DashboardStats {
-  total: number;
-  submitted: number;
-  underReview: number;
-  shortlisted: number;
-  interviews: number;
-  offers: number;
-  hired: number;
-  rejected: number;
-  pool: number;
-  conversionRate: number;
-}
 
 export function HRDashboard() {
   const { candidates, navigate, setSelectedCandidateId } = useApp();
@@ -167,8 +155,6 @@ export function HRDashboard() {
           </div>
           <div className="space-y-2">
             {recent.map((c) => {
-              const company = getCompany(c.preferredCompany);
-              const vacancy = c.vacancyId ? getVacancy(c.vacancyId) : undefined;
               return (
                 <div
                   key={c.id}
@@ -181,7 +167,7 @@ export function HRDashboard() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{c.fullName}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {vacancy?.title || 'Talent Pool Submission'} · {company?.name || 'General'}
+                      {c.vacancy?.title || 'Talent Pool Submission'} · {c.company?.name || 'General'}
                     </p>
                   </div>
                   <Badge

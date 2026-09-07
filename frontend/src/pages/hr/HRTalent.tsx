@@ -1,12 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Search, Filter, ArrowRight, Eye, Download, Inbox, X,
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
 import {
-  companies, departments, locations, pipelineStages, getCompany, getVacancy,
-  formatDate, type ApplicationStatus,
+  departments, locations, pipelineStages, formatDate, type ApplicationStatus, type Company,
 } from '@/lib/data';
+import * as api from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,11 @@ export function HRTalent() {
   const [department, setDepartment] = useState('all');
   const [location, setLocation] = useState('all');
   const [status, setStatus] = useState('all');
+  const [companies, setCompanies] = useState<Company[]>([]);
+
+  useEffect(() => {
+    api.getCompanies().then((data) => setCompanies(data)).catch(console.error);
+  }, []);
 
   const filtered = useMemo(() => {
     return candidates.filter((c) => {
@@ -36,7 +41,7 @@ export function HRTalent() {
       }
       if (company !== 'all' && c.preferredCompany !== company) return false;
       if (department !== 'all' && c.preferredDepartment !== department) return false;
-      if (location !== 'all' && c.city !== location) return false;
+      if (location !== 'all' && !c.city.toLowerCase().includes(location.toLowerCase().split(',')[0])) return false;
       if (status !== 'all' && c.status !== status) return false;
       return true;
     });
@@ -99,7 +104,9 @@ export function HRTalent() {
           <div className="mt-3 flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Active:</span>
             {activeFilters.map((f) => (
-              <Badge key={f as string} variant="secondary" className="font-normal">{getCompany(f as string)?.name || f}</Badge>
+              <Badge key={f as string} variant="secondary" className="font-normal">
+                {companies.find((c) => c.id === f)?.name || f}
+              </Badge>
             ))}
             <button onClick={clearAll} className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
               <X className="h-3 w-3" /> Clear all
@@ -143,8 +150,6 @@ export function HRTalent() {
               </TableHeader>
               <TableBody>
                 {filtered.map((c) => {
-                  const company = getCompany(c.preferredCompany);
-                  const vacancy = c.vacancyId ? getVacancy(c.vacancyId) : undefined;
                   return (
                     <TableRow
                       key={c.id}
@@ -165,9 +170,13 @@ export function HRTalent() {
                       <TableCell className="text-sm text-muted-foreground">{c.fieldOfStudy}</TableCell>
                       <TableCell className="hidden text-sm text-muted-foreground md:table-cell">{c.totalExperience}</TableCell>
                       <TableCell className="hidden text-sm lg:table-cell">
-                        {vacancy ? <span className="font-medium">{vacancy.title}</span> : <span className="text-muted-foreground">Talent Pool</span>}
+                        {c.vacancy
+                          ? <span className="font-medium">{c.vacancy.title}</span>
+                          : <span className="text-muted-foreground">Talent Pool</span>}
                       </TableCell>
-                      <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">{company?.shortName || '—'}</TableCell>
+                      <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
+                        {c.company?.shortName || companies.find((co) => co.id === c.preferredCompany)?.shortName || '—'}
+                      </TableCell>
                       <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">{c.expectedSalary}</TableCell>
                       <TableCell>
                         <Badge className={cn('border-transparent font-normal', statusBadgeClass(c.status))}>

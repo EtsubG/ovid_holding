@@ -1,12 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Check, ChevronRight, ChevronLeft, User, GraduationCap,
-  Briefcase, Upload, PartyPopper, Copy, Home, Search,
+  Briefcase, Upload, PartyPopper, Copy, Home, Loader2,
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
 import {
-  getVacancy, getCompany, generateReference, companies, departments, locations,
-  jobCategories, type Candidate, type EmploymentType, type ExperienceLevel,
+  generateReference, type Candidate, type Vacancy, type Company,
 } from '@/lib/data';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -47,15 +46,48 @@ const empty: FormState = {
   totalExperience: '', relevantExperience: '', availability: '', expectedSalary: '',
 };
 
-export function ApplicationForm({ open, onOpenChange, vacancyId }: { open: boolean; onOpenChange: (v: boolean) => void; vacancyId: string }) {
+export function ApplicationForm({
+  open,
+  onOpenChange,
+  vacancyId,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  vacancyId: string;
+}) {
   const { navigate, addCandidate } = useApp();
-  const vacancy = useMemo(() => getVacancy(vacancyId), [vacancyId]);
-  const company = vacancy ? getCompany(vacancy.companyId) : undefined;
+  const [vacancy, setVacancy] = useState<Vacancy | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
+  const [loadingVacancy, setLoadingVacancy] = useState(false);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>(empty);
   const [reference, setReference] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch vacancy from API when dialog opens
+  useEffect(() => {
+    if (!open || !vacancyId) return;
+    const fetch = async () => {
+      try {
+        setLoadingVacancy(true);
+        const v = await api.getVacancy(vacancyId);
+        setVacancy(v);
+        // The API returns the nested company object on the vacancy
+        if (v.company) {
+          setCompany(v.company);
+        } else if (v.companyId) {
+          const c = await api.getCompany(v.companyId);
+          setCompany(c);
+        }
+      } catch {
+        toast.error('Failed to load vacancy details');
+      } finally {
+        setLoadingVacancy(false);
+      }
+    };
+    fetch();
+  }, [open, vacancyId]);
 
   const set = (key: keyof FormState, value: string) => {
     setForm((p) => ({ ...p, [key]: value }));
@@ -87,19 +119,12 @@ export function ApplicationForm({ open, onOpenChange, vacancyId }: { open: boole
     return Object.keys(e).length === 0;
   };
 
-  const next = () => {
-    if (validateStep(step)) {
-      if (step < 5) setStep(step + 1);
-    }
-  };
-
+  const next = () => { if (validateStep(step) && step < 5) setStep(step + 1); };
   const back = () => step > 1 && setStep(step - 1);
 
   const submit = async () => {
     setIsSubmitting(true);
-    
     try {
-      // Prepare data matching your backend's expected format
       const formData = {
         fullName: form.fullName,
         email: form.email,
@@ -127,14 +152,10 @@ export function ApplicationForm({ open, onOpenChange, vacancyId }: { open: boole
         vacancyId: vacancy?.id || null,
       };
 
-      // Submit to backend
       const result = await api.submitApplication(formData);
-      
-      // Use the reference from the backend
       const backendReference = result.reference || generateReference();
       setReference(backendReference);
 
-      // Create candidate object for local state
       const newCandidate: Candidate = {
         id: result.id || `c-${Date.now()}`,
         fullName: form.fullName,
@@ -166,8 +187,10 @@ export function ApplicationForm({ open, onOpenChange, vacancyId }: { open: boole
         ],
         notes: [],
         reference: backendReference,
+        company: company ? { id: company.id, name: company.name, shortName: company.shortName } : undefined,
+        vacancy: vacancy ? { id: vacancy.id, title: vacancy.title, department: vacancy.department } : undefined,
       };
-      
+
       addCandidate(newCandidate);
       setStep(5);
       toast.success('Application submitted successfully!');
@@ -184,6 +207,8 @@ export function ApplicationForm({ open, onOpenChange, vacancyId }: { open: boole
     setStep(1);
     setReference('');
     setErrors({});
+    setVacancy(null);
+    setCompany(null);
     onOpenChange(false);
   };
 
@@ -197,12 +222,14 @@ export function ApplicationForm({ open, onOpenChange, vacancyId }: { open: boole
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto p-0 scrollbar-thin">
         <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle className="font-serif text-xl">
-            {step === 5 ? 'Application Submitted' : `Apply: ${vacancy?.title}`}
+            {step === 5 ? 'Application Submitted' : loadingVacancy ? 'Loading…' : `Apply: ${vacancy?.title ?? 'Role'}`}
           </DialogTitle>
           <DialogDescription>
             {step === 5
               ? 'Your application has been received'
-              : `${company?.name} · ${vacancy?.location} · Step ${step} of 4`}
+              : loadingVacancy
+              ? 'Fetching vacancy details…'
+              : `${company?.name ?? ''} · ${vacancy?.location ?? ''} · Step ${step} of 4`}
           </DialogDescription>
         </DialogHeader>
 
@@ -240,14 +267,210 @@ export function ApplicationForm({ open, onOpenChange, vacancyId }: { open: boole
           </div>
         )}
 
-        {/* Form body */}
-        <div className="px-6 py-5">
-          {/* ... rest of your form fields (same as before) ... */}
-          {/* Keep all the step 1-5 content exactly as you have it */}
-        </div>
+        {/* Loading state */}
+        {loadingVacancy && step < 5 ? (
+          <div className="flex items-center justify-center px-6 py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="px-6 py-5 space-y-5">
+
+            {/* Step 1 – Personal Information */}
+            {step === 1 && (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Full Name" required error={errors.fullName}>
+                    <Input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} placeholder="Jane Doe" />
+                  </Field>
+                  <Field label="Email" required error={errors.email}>
+                    <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="jane@email.com" />
+                  </Field>
+                  <Field label="Phone" required error={errors.phone}>
+                    <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+971 50 123 4567" />
+                  </Field>
+                  <Field label="Alternate Phone" error={errors.altPhone}>
+                    <Input value={form.altPhone} onChange={(e) => set('altPhone', e.target.value)} placeholder="+971 50 000 0000" />
+                  </Field>
+                  <Field label="Current City" required error={errors.city}>
+                    <Input value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="Dubai, UAE" />
+                  </Field>
+                  <Field label="Nationality" required error={errors.nationality}>
+                    <Input value={form.nationality} onChange={(e) => set('nationality', e.target.value)} placeholder="UAE" />
+                  </Field>
+                  <Field label="ID Type" error={errors.idType}>
+                    <Select value={form.idType} onValueChange={(v) => set('idType', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="National ID">National ID</SelectItem>
+                        <SelectItem value="Passport">Passport</SelectItem>
+                        <SelectItem value="Residence Visa">Residence Visa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="ID Number" error={errors.idNumber}>
+                    <Input value={form.idNumber} onChange={(e) => set('idNumber', e.target.value)} placeholder="784-XXXX-XXXXXXX-X" />
+                  </Field>
+                </div>
+              </>
+            )}
+
+            {/* Step 2 – Academic Background */}
+            {step === 2 && (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Highest Qualification" required error={errors.qualification}>
+                    <Select value={form.qualification} onValueChange={(v) => set('qualification', v)}>
+                      <SelectTrigger><SelectValue placeholder="Select qualification" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="High School">High School</SelectItem>
+                        <SelectItem value="Diploma">Diploma</SelectItem>
+                        <SelectItem value="Bachelor's">Bachelor's</SelectItem>
+                        <SelectItem value="Master's">Master's</SelectItem>
+                        <SelectItem value="PhD">PhD</SelectItem>
+                        <SelectItem value="Professional Certification">Professional Certification</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Field of Study" required error={errors.fieldOfStudy}>
+                    <Input value={form.fieldOfStudy} onChange={(e) => set('fieldOfStudy', e.target.value)} placeholder="Business Administration" />
+                  </Field>
+                  <Field label="Institution" required error={errors.institution}>
+                    <Input value={form.institution} onChange={(e) => set('institution', e.target.value)} placeholder="University of Dubai" />
+                  </Field>
+                  <Field label="Graduation Year" required error={errors.graduationYear}>
+                    <Input value={form.graduationYear} onChange={(e) => set('graduationYear', e.target.value)} placeholder="2020" />
+                  </Field>
+                  <Field label="CGPA / Grade" error={errors.cgpa}>
+                    <Input value={form.cgpa} onChange={(e) => set('cgpa', e.target.value)} placeholder="3.8 / 4.0" />
+                  </Field>
+                </div>
+                <Field label="Additional Certificates" error={errors.certificates}>
+                  <Textarea
+                    value={form.certificates}
+                    onChange={(e) => set('certificates', e.target.value)}
+                    placeholder="List any professional certifications, e.g. PMP, CFA, AWS…"
+                    className="min-h-[80px]"
+                  />
+                </Field>
+              </>
+            )}
+
+            {/* Step 3 – Employment Details */}
+            {step === 3 && (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Current Status" error={errors.currentStatus}>
+                    <Select value={form.currentStatus} onValueChange={(v) => set('currentStatus', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Employed">Employed</SelectItem>
+                        <SelectItem value="Unemployed">Unemployed</SelectItem>
+                        <SelectItem value="Student">Student</SelectItem>
+                        <SelectItem value="Freelance">Freelance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Current Employer" error={errors.currentEmployer}>
+                    <Input value={form.currentEmployer} onChange={(e) => set('currentEmployer', e.target.value)} placeholder="Acme Corp" />
+                  </Field>
+                  <Field label="Current Role / Title" error={errors.currentRole}>
+                    <Input value={form.currentRole} onChange={(e) => set('currentRole', e.target.value)} placeholder="Senior Manager" />
+                  </Field>
+                  <Field label="Total Experience" required error={errors.totalExperience}>
+                    <Input value={form.totalExperience} onChange={(e) => set('totalExperience', e.target.value)} placeholder="5 years" />
+                  </Field>
+                  <Field label="Relevant Experience" error={errors.relevantExperience}>
+                    <Input value={form.relevantExperience} onChange={(e) => set('relevantExperience', e.target.value)} placeholder="3 years" />
+                  </Field>
+                  <Field label="Expected Salary" required error={errors.expectedSalary}>
+                    <Input value={form.expectedSalary} onChange={(e) => set('expectedSalary', e.target.value)} placeholder="AED 25,000 / mo" />
+                  </Field>
+                  <Field label="Availability" required error={errors.availability}>
+                    <Select value={form.availability} onValueChange={(v) => set('availability', v)}>
+                      <SelectTrigger><SelectValue placeholder="When can you start?" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Immediate">Immediate</SelectItem>
+                        <SelectItem value="2 weeks">2 weeks</SelectItem>
+                        <SelectItem value="1 month notice">1 month notice</SelectItem>
+                        <SelectItem value="2 months notice">2 months notice</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+              </>
+            )}
+
+            {/* Step 4 – Documents */}
+            {step === 4 && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Upload the required documents below. Accepted formats: PDF, DOC, DOCX.
+                </p>
+                <div className="space-y-4">
+                  <div>
+                    <p className="mb-2 text-sm font-medium">CV / Resume <span className="text-destructive">*</span></p>
+                    <Dropzone label="CV / Resume" required accept=".pdf,.doc,.docx" multiple={false} />
+                  </div>
+                  <div>
+                    <p className="mb-2 text-sm font-medium">Cover Letter</p>
+                    <Dropzone label="Cover Letter" accept=".pdf,.doc,.docx" multiple={false} />
+                  </div>
+                  {vacancy?.documents && vacancy.documents.length > 0 && (
+                    <div className="rounded-lg border border-accent/30 bg-accent/5 p-4">
+                      <p className="mb-2 text-sm font-semibold">Additional required documents for this role:</p>
+                      <ul className="space-y-1">
+                        {vacancy.documents.map((doc, i) => (
+                          <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <div className="h-1.5 w-1.5 rounded-full bg-accent" />
+                            {doc}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Step 5 – Success */}
+            {step === 5 && (
+              <div className="py-8 text-center">
+                <div className="mb-5 flex h-16 w-16 mx-auto items-center justify-center rounded-full bg-success/10 text-success">
+                  <PartyPopper className="h-8 w-8" />
+                </div>
+                <h2 className="font-serif text-2xl font-semibold tracking-tight">Application Received!</h2>
+                <p className="mt-2 text-muted-foreground">
+                  Thank you, {form.fullName.split(' ')[0]}. We'll review your application and be in touch soon.
+                </p>
+                <div className="mx-auto mt-6 max-w-xs">
+                  <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Your Reference Number</p>
+                  <div className="flex items-center justify-between rounded-lg border-2 border-accent/40 bg-accent/5 px-4 py-3">
+                    <span className="font-mono text-lg font-bold tracking-wider text-accent">#{reference}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { navigator.clipboard.writeText(reference); toast.success('Copied!'); }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="mt-8 flex justify-center gap-3">
+                  <Button variant="outline" onClick={() => closeAndNavigate('home')}>
+                    <Home className="mr-2 h-4 w-4" /> Home
+                  </Button>
+                  <Button onClick={() => closeAndNavigate('vacancies')} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                    Browse More Jobs
+                  </Button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
 
         {/* Footer nav */}
-        {step < 5 && (
+        {step < 5 && !loadingVacancy && (
           <div className="flex items-center justify-between border-t border-border px-6 py-4">
             <Button variant="ghost" onClick={back} disabled={step === 1}>
               <ChevronLeft className="mr-1 h-4 w-4" /> Back
@@ -257,13 +480,16 @@ export function ApplicationForm({ open, onOpenChange, vacancyId }: { open: boole
                 Continue <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             ) : (
-              <Button 
-                onClick={submit} 
+              <Button
+                onClick={submit}
                 className="bg-success text-success-foreground hover:bg-success/90"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Submitting...' : 'Submit Application'}
-                {!isSubmitting && <Check className="ml-1 h-4 w-4" />}
+                {isSubmitting ? (
+                  <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Submitting…</>
+                ) : (
+                  <><Check className="mr-1 h-4 w-4" /> Submit Application</>
+                )}
               </Button>
             )}
           </div>
@@ -273,7 +499,11 @@ export function ApplicationForm({ open, onOpenChange, vacancyId }: { open: boole
   );
 }
 
-function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
+function Field({
+  label, required, error, children,
+}: {
+  label: string; required?: boolean; error?: string; children: React.ReactNode;
+}) {
   return (
     <div>
       <Label className="mb-1.5 block text-sm font-medium">

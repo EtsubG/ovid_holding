@@ -3,7 +3,7 @@ const { Op } = require('sequelize');
 
 exports.getAllVacancies = async (req, res) => {
   try {
-    const { company, location, department, type, search } = req.query;
+    const { company, location, department, type, search, featured } = req.query;
     
     const where = {};
     
@@ -18,6 +18,9 @@ exports.getAllVacancies = async (req, res) => {
     }
     if (type && type !== 'all') {
       where.type = type;
+    }
+    if (featured === 'true') {
+      where.featured = true;
     }
     if (search) {
       where[Op.or] = [

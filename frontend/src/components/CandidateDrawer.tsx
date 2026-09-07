@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
 import {
-  getCompany, getVacancy, pipelineStages, formatDateTime, formatDate,
+  pipelineStages, formatDateTime, formatDate,
   type ApplicationStatus, type Candidate,
 } from '@/lib/data';
 import {
@@ -47,8 +47,8 @@ export function CandidateDrawer() {
     return <Sheet open={false} onOpenChange={() => {}}><SheetContent /></Sheet>;
   }
 
-  const company = getCompany(candidate.preferredCompany);
-  const vacancy = candidate.vacancyId ? getVacancy(candidate.vacancyId) : undefined;
+  const company = candidate.company ?? null;
+  const vacancy = candidate.vacancy ?? null;
 
   const handleStatusChange = (value: ApplicationStatus) => {
     updateCandidateStatus(candidate.id, value);
