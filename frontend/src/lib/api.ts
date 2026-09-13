@@ -3,11 +3,20 @@ import type { Company, Vacancy, Candidate } from '@/lib/data';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
+// ── Token helpers ──────────────────────────────
+const TOKEN_KEY = 'ovid_auth_token';
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem(TOKEN_KEY);
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 // ── Core helper ──────────────────────────────
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
       ...options.headers,
     },
     ...options,
@@ -164,6 +173,82 @@ export async function getPipelineStages(): Promise<PipelineStage[]> {
   return fetchAPI<PipelineStage[]>('/references/pipeline-stages');
 }
 
+// ── Auth API ──────────────────────────────
+export interface LoginResponse {
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    role: 'admin' | 'holding_hr' | 'company_hr' | 'management';
+    companyId: string | null;
+    company?: { id: string; name: string } | null;
+  };
+}
+
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Login failed');
+  }
+  return res.json();
+}
+
+export async function getMe() {
+  return fetchAPI('/auth/me');
+}
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  return fetchAPI('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+// Admin user management
+export async function getAllUsers() {
+  return fetchAPI('/auth/users');
+}
+
+export async function createUser(data: {
+  email: string;
+  password: string;
+  fullName: string;
+  role: string;
+  companyId?: string | null;
+}) {
+  return fetchAPI('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateUser(
+  id: string,
+  data: { fullName?: string; role?: string; companyId?: string | null; isActive?: boolean }
+) {
+  return fetchAPI(`/auth/users/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteUser(id: string) {
+  return fetchAPI(`/auth/users/${id}`, { method: 'DELETE' });
+}
+
+export async function resetUserPassword(id: string, newPassword: string) {
+  return fetchAPI(`/auth/users/${id}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify({ newPassword }),
+  });
+}
+
 // ── File uploads / documents ─────────────────
 export async function uploadDocuments(
   candidateId: string,
@@ -182,8 +267,8 @@ export async function uploadDocuments(
 
   const res = await fetch(`${API_BASE}/applications/${candidateId}/upload`, {
     method: 'POST',
+    headers: { ...getAuthHeaders() }, // Added auth headers
     body: formData,
-    // Note: Don't set Content-Type — the browser will set it with the correct boundary
   });
 
   if (!res.ok) {
@@ -221,4 +306,13 @@ export const api = {
   uploadDocuments,
   getDocumentUrl,
   getDownloadUrl,
+  // Auth
+  login,
+  getMe,
+  changePassword,
+  getAllUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  resetUserPassword,
 };

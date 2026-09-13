@@ -1,3 +1,4 @@
+// backend/src/config/database.js
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
@@ -9,13 +10,13 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     dialect: 'postgres',
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    logging: false,          // ← Change this to false
     pool: {
       max: 5,
       min: 0,
       acquire: 30000,
-      idle: 10000
-    }
+      idle: 10000,
+    },
   }
 );
 

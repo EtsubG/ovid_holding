@@ -1,13 +1,15 @@
+// src/components/CandidateDrawer.tsx
+
 import { useMemo, useState, useEffect } from 'react';
 import {
   Mail, Phone, MapPin, FileText, Clock, Briefcase, GraduationCap,
-  Wallet, Calendar, MessageSquare, Send, ChevronRight, User, FileCheck,
-  Eye, Download, X,
+  Wallet, Calendar, MessageSquare, Send, User, FileCheck,
+  Download, ExternalLink,
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
 import { api } from '@/lib/api';
 import {
-  pipelineStages, formatDateTime, formatDate,
+  pipelineStages, formatDateTime,
   type ApplicationStatus,
 } from '@/lib/data';
 import {
@@ -118,20 +120,33 @@ export function CandidateDrawer() {
     setPreviewDoc({ filename, name: docName });
   };
 
-  // Download handler
-  const handleDownload = (filename: string, docName: string) => {
+  // Download handler with token authentication
+  const handleDownload = async (filename: string, docName: string) => {
     if (!filename) {
       toast.error('Document file not available');
       return;
     }
-    const url = api.getDownloadUrl(candidate.id, filename);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = docName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Downloading ${docName}...`);
+    try {
+      const url = api.getDownloadUrl(candidate.id, filename);
+      const token = localStorage.getItem('ovid_auth_token');
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = docName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      toast.success(`Downloaded ${docName}`);
+    } catch (err) {
+      console.error('Download error:', err);
+      toast.error('Failed to download document');
+    }
   };
 
   return (
@@ -251,7 +266,7 @@ export function CandidateDrawer() {
                               disabled={!doc.filename}
                               title={doc.filename ? 'Preview' : 'File not stored'}
                             >
-                              <Eye className="h-4 w-4" />
+                              <ExternalLink className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -269,7 +284,7 @@ export function CandidateDrawer() {
                     </div>
                   )}
                   <p className="mt-3 text-xs text-muted-foreground">
-                    Click the eye icon to preview PDFs and images, or the download icon to save the file.
+                    Click the preview icon to view PDFs and images securely, or the download icon to save the file.
                   </p>
                 </Section>
               </TabsContent>
@@ -352,8 +367,11 @@ function DocumentPreviewModal({
     setError(null);
 
     const url = api.getDocumentUrl(candidateId, filename);
+    const token = localStorage.getItem('ovid_auth_token');
 
-    fetch(url)
+    fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then((res) => {
         if (!res.ok) throw new Error('Failed to load document');
         return res.blob();
@@ -382,11 +400,29 @@ function DocumentPreviewModal({
   }, [blobUrl]);
 
   const handleDownload = () => {
-    if (blobUrl) {
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = docName;
-      link.click();
+    if (!blobUrl) return;
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = docName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Downloaded ${docName}`);
+  };
+
+  const handleOpenInTab = async () => {
+    try {
+      const url = api.getDocumentUrl(candidateId, filename);
+      const token = localStorage.getItem('ovid_auth_token');
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Not found');
+      const blob = await res.blob();
+      const openBlobUrl = URL.createObjectURL(blob);
+      window.open(openBlobUrl, '_blank');
+    } catch {
+      toast.error('Failed to open document');
     }
   };
 
@@ -398,7 +434,12 @@ function DocumentPreviewModal({
             {docName}
           </DialogTitle>
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="ghost" size="sm" onClick={handleDownload}>
+            {(isPDF || isImage) && (
+              <Button variant="ghost" size="sm" onClick={handleOpenInTab}>
+                <ExternalLink className="h-4 w-4 mr-1.5" /> Open in Tab
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleDownload} disabled={!blobUrl}>
               <Download className="h-4 w-4 mr-1.5" /> Download
             </Button>
           </div>
@@ -407,17 +448,17 @@ function DocumentPreviewModal({
         <div className="flex-1 overflow-auto bg-secondary/30">
           {loading && (
             <div className="flex items-center justify-center h-full">
-              <div className="text-muted-foreground text-sm">Loading document...</div>
+              <div className="flex flex-col items-center gap-3">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                <div className="text-muted-foreground text-sm">Loading document...</div>
+              </div>
             </div>
           )}
 
           {error && (
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <p className="text-destructive text-sm">{error}</p>
-              <Button
-                variant="outline"
-                onClick={() => window.open(api.getDocumentUrl(candidateId, filename), '_blank')}
-              >
+              <Button variant="outline" onClick={handleOpenInTab}>
                 Try Opening in New Tab
               </Button>
             </div>
