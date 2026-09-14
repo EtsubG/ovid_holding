@@ -15,6 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { InterviewFeedbackModal } from '@/components/InterviewFeedbackModal';
 import { cn } from '@/lib/utils';
 import { api, type Interview } from '@/lib/api';
 import { toast } from 'sonner';
@@ -34,6 +35,7 @@ export function InterviewList({
   showCandidate = false,
 }: InterviewListProps) {
   const [deleteTarget, setDeleteTarget] = useState<Interview | null>(null);
+  const [feedbackTarget, setFeedbackTarget] = useState<Interview | null>(null);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -47,6 +49,7 @@ export function InterviewList({
     }
   };
 
+  // ✅ Direct status change (for cancel / no-show)
   const handleStatusChange = async (interview: Interview, newStatus: string) => {
     try {
       await api.updateInterview(interview.id, { status: newStatus });
@@ -55,6 +58,11 @@ export function InterviewList({
     } catch {
       toast.error('Failed to update');
     }
+  };
+
+  // ✅ Open feedback modal (for Completed)
+  const handleMarkCompleted = (interview: Interview) => {
+    setFeedbackTarget(interview);
   };
 
   if (interviews.length === 0) {
@@ -77,10 +85,12 @@ export function InterviewList({
             onEdit={() => onEdit(interview)}
             onDelete={() => setDeleteTarget(interview)}
             onStatusChange={(s) => handleStatusChange(interview, s)}
+            onMarkCompleted={() => handleMarkCompleted(interview)}
           />
         ))}
       </div>
 
+      {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -105,6 +115,17 @@ export function InterviewList({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Feedback modal */}
+      <InterviewFeedbackModal
+        open={!!feedbackTarget}
+        onOpenChange={(o) => !o && setFeedbackTarget(null)}
+        interview={feedbackTarget}
+        onSaved={() => {
+          setFeedbackTarget(null);
+          onRefresh();
+        }}
+      />
     </>
   );
 }
@@ -118,12 +139,14 @@ function InterviewCard({
   onEdit,
   onDelete,
   onStatusChange,
+  onMarkCompleted,
 }: {
   interview: Interview;
   showCandidate: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onStatusChange: (s: string) => void;
+  onMarkCompleted: () => void;
 }) {
   const dt = new Date(interview.scheduledDate);
   const isPast = dt < new Date();
@@ -263,22 +286,33 @@ function InterviewCard({
               <Edit className="mr-2 h-4 w-4" /> Edit
             </DropdownMenuItem>
             {interview.status === 'Scheduled' && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onStatusChange('Completed')}>
-                  <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-600" />
-                  Mark as Completed
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onStatusChange('Cancelled')}>
-                  <XCircle className="mr-2 h-4 w-4 text-rose-600" />
-                  Cancel
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onStatusChange('No-Show')}>
-                  <AlertTriangle className="mr-2 h-4 w-4 text-slate-600" />
-                  Mark as No-Show
-                </DropdownMenuItem>
-              </>
-            )}
+  <>
+    <DropdownMenuSeparator />
+    <DropdownMenuItem onClick={onMarkCompleted}>
+      <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-600" />
+      Mark as Completed & Add Feedback
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => onStatusChange('Cancelled')}>
+      <XCircle className="mr-2 h-4 w-4 text-rose-600" />
+      Cancel Interview
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => onStatusChange('No-Show')}>
+      <AlertTriangle className="mr-2 h-4 w-4 text-slate-600" />
+      Mark as No-Show
+    </DropdownMenuItem>
+  </>
+)}
+
+{/* Add: Edit feedback for completed interviews */}
+{interview.status === 'Completed' && (
+  <>
+    <DropdownMenuSeparator />
+    <DropdownMenuItem onClick={onMarkCompleted}>
+      <Star className="mr-2 h-4 w-4 text-amber-600" />
+      Edit Feedback
+    </DropdownMenuItem>
+  </>
+)}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={onDelete}

@@ -284,7 +284,15 @@ export async function createInterview(data: CreateInterviewInput): Promise<Inter
   });
 }
 
-export async function updateInterview(id: string, data: Partial<CreateInterviewInput> & { status?: string; feedback?: string; rating?: number }): Promise<Interview> {
+export async function updateInterview(
+  id: string,
+  data: Partial<CreateInterviewInput> & {
+    status?: string;
+    feedback?: string;
+    rating?: number;
+    decision?: 'pass' | 'fail' | 'maybe';
+  }
+): Promise<Interview> {
   return fetchAPI<Interview>(`/interviews/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),

@@ -160,6 +160,10 @@ exports.createInterview = async (req, res) => {
 // PUT /api/interviews/:id
 // Update interview
 // ─────────────────────────────────────────────
+// backend/src/controllers/interviewController.js
+
+// Replace the updateInterview function with this:
+
 exports.updateInterview = async (req, res) => {
   try {
     const interview = await Interview.findByPk(req.params.id);
@@ -180,6 +184,7 @@ exports.updateInterview = async (req, res) => {
       notes,
       feedback,
       rating,
+      decision,   // 🆕 'pass' | 'fail' | 'maybe' | null
     } = req.body;
 
     const updates = {};
@@ -198,22 +203,46 @@ exports.updateInterview = async (req, res) => {
 
     await interview.update(updates);
 
-    // If marked as Completed, log it in candidate timeline
-    if (status === 'Completed') {
-      const candidate = await Candidate.findByPk(interview.candidateId);
-      if (candidate) {
-        const candidateNotes = [
-          ...(candidate.notes || []),
-          {
-            author: 'HR Team',
-            date: new Date().toISOString().split('T')[0],
-            text: `Interview completed: ${interview.title}${
-              feedback ? ` — Feedback: ${feedback}` : ''
-            }`,
-          },
-        ];
-        await candidate.update({ notes: candidateNotes });
+    const candidate = await Candidate.findByPk(interview.candidateId);
+
+    // ─────────────────────────────────────────
+    // If marked as Completed, log it + apply decision
+    // ─────────────────────────────────────────
+    if (status === 'Completed' && candidate) {
+      let candidateStatusUpdate = null;
+      let decisionText = '';
+
+      if (decision === 'pass') {
+        // Move to next stage
+        candidateStatusUpdate = 'Reference Check';
+        decisionText = ' ✅ PASSED';
+      } else if (decision === 'fail') {
+        candidateStatusUpdate = 'Rejected';
+        decisionText = ' ❌ NOT SELECTED';
+      } else if (decision === 'maybe') {
+        candidateStatusUpdate = 'Under Review';
+        decisionText = ' 🤔 ON HOLD';
       }
+
+      // Add timeline note
+      const candidateNotes = [
+        ...(candidate.notes || []),
+        {
+          author: 'HR Team',
+          date: new Date().toISOString().split('T')[0],
+          text:
+            `Interview completed: ${interview.title}${decisionText}` +
+            (feedback ? ` — ${feedback}` : '') +
+            (rating ? ` (Rating: ${'⭐'.repeat(rating)})` : ''),
+        },
+      ];
+
+      const candidateUpdates = { notes: candidateNotes };
+      if (candidateStatusUpdate) {
+        candidateUpdates.status = candidateStatusUpdate;
+      }
+
+      await candidate.update(candidateUpdates);
     }
 
     res.json(interview);
