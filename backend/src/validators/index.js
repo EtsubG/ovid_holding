@@ -46,9 +46,11 @@ const statusUpdateSchema = Joi.object({
   status: Joi.string().valid(
     'Submitted',
     'Under Review',
+    'Longlisted',           // 🆕
     'Shortlisted',
     'Interview Scheduled',
     'Reference Check',
+    'Selected',             // 🆕
     'Offer Issued',
     'Hired',
     'Talent Pool',

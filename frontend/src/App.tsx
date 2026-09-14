@@ -24,6 +24,8 @@ const HRDashboard = lazy(() => import('@/pages/hr/HRDashboard').then((m) => ({ d
 const HRPipeline = lazy(() => import('@/pages/hr/HRPipeline').then((m) => ({ default: m.HRPipeline })));
 const HRTalent = lazy(() => import('@/pages/hr/HRTalent').then((m) => ({ default: m.HRTalent })));
 const HRVacancies = lazy(() => import('@/pages/hr/HRVacancies').then((m) => ({ default: m.HRVacancies })));
+const HRVacancyApprovals = lazy(() => import('@/pages/hr/HRVacancyApprovals').then((m) => ({ default: m.HRVacancyApprovals })));
+
 
 
 
@@ -59,12 +61,21 @@ function Router() {
             <HRPipeline />
           </ProtectedRoute>
         );
+
+      case 'hr-approvals':
+  return (
+    <ProtectedRoute allow={['admin', 'holding_hr']}>
+      <HRVacancyApprovals />
+    </ProtectedRoute>
+  );  
       case 'hr-talent':
         return (
           <ProtectedRoute allow={['admin', 'holding_hr', 'company_hr', 'management']}>
             <HRTalent />
           </ProtectedRoute>
         );
+
+
 
       case 'hr-vacancies':
   return (

@@ -276,14 +276,17 @@ function statusBadgeClass(status: ApplicationStatus): string {
   const stage = pipelineStages.find((s) => s.key === status);
   if (!stage) return 'bg-muted text-muted-foreground';
   const map: Record<string, string> = {
-    'bg-slate-500': 'bg-slate-500 text-white',
-    'bg-blue-500': 'bg-blue-500 text-white',
-    'bg-cyan-500': 'bg-cyan-500 text-white',
-    'bg-violet-500': 'bg-violet-500 text-white',
-    'bg-amber-500': 'bg-amber-500 text-white',
-    'bg-emerald-500': 'bg-emerald-500 text-white',
-    'bg-teal-500': 'bg-teal-500 text-white',
-    'bg-rose-500': 'bg-rose-500 text-white',
-  };
+  'bg-slate-500': 'bg-slate-500 text-white',
+  'bg-blue-500': 'bg-blue-500 text-white',
+  'bg-indigo-500': 'bg-indigo-500 text-white',   // 🆕
+  'bg-cyan-500': 'bg-cyan-500 text-white',
+  'bg-violet-500': 'bg-violet-500 text-white',
+  'bg-amber-500': 'bg-amber-500 text-white',
+  'bg-lime-500': 'bg-lime-500 text-white',       // 🆕
+  'bg-emerald-500': 'bg-emerald-500 text-white',
+  'bg-green-600': 'bg-green-600 text-white',     // 🆕
+  'bg-teal-500': 'bg-teal-500 text-white',
+  'bg-rose-500': 'bg-rose-500 text-white',
+};
   return map[stage.color] || 'bg-muted text-muted-foreground';
 }

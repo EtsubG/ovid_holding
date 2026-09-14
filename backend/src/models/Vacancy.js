@@ -80,10 +80,33 @@ const Vacancy = sequelize.define('Vacancy', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
-  // 🆕 NEW: published/draft state
   isActive: {
     type: DataTypes.BOOLEAN,
-    defaultValue: true,
+    defaultValue: false,   // 🆕 Default: drafts not published
+  },
+
+  // 🆕 APPROVAL WORKFLOW
+  approvalStatus: {
+    type: DataTypes.ENUM('Pending', 'Approved', 'Rejected'),
+    defaultValue: 'Pending',
+    allowNull: false,
+  },
+  approvedBy: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: { model: 'users', key: 'id' },
+  },
+  approvedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  approvalNotes: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  rejectionReason: {
+    type: DataTypes.TEXT,
+    allowNull: true,
   },
 }, {
   tableName: 'vacancies',

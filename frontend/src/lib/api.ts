@@ -472,6 +472,31 @@ export async function getAllVacanciesAdmin() {
   return fetchAPI('/vacancies?includeInactive=true');
 }
 
+// ─────────────────────────────────────────────
+// Vacancy Approval
+// ─────────────────────────────────────────────
+export async function submitVacancyForApproval(id: string) {
+  return fetchAPI(`/vacancies/${id}/submit-approval`, { method: 'POST' });
+}
+
+export async function getPendingApprovals() {
+  return fetchAPI('/vacancies/approvals/pending');
+}
+
+export async function approveVacancy(id: string, notes?: string) {
+  return fetchAPI(`/vacancies/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+}
+
+export async function rejectVacancy(id: string, reason: string) {
+  return fetchAPI(`/vacancies/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
 // ── Grouped API object (for components using `api.getX()`) ─
 export const api = {
   getCompanies,
@@ -518,6 +543,11 @@ export const api = {
   createInterview,
   updateInterview,
   deleteInterview,
+  //
+  submitVacancyForApproval,
+  getPendingApprovals,
+  approveVacancy,
+  rejectVacancy,
 
 
 };

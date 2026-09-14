@@ -189,15 +189,17 @@ exports.addCandidateNote = async (req, res) => {
 exports.getDashboardStats = async (req, res) => {
   try {
     const candidates = await Candidate.findAll();
-
     const byStatus = (s) => candidates.filter((c) => c.status === s).length;
 
     const stats = {
       total: candidates.length,
       submitted: byStatus('Submitted'),
-      underReview: byStatus('Under Review') + byStatus('Shortlisted'),
+      underReview: byStatus('Under Review') + byStatus('Longlisted'),
+      longlisted: byStatus('Longlisted'),                // 🆕
       shortlisted: byStatus('Shortlisted'),
       interviews: byStatus('Interview Scheduled'),
+      referenceCheck: byStatus('Reference Check'),
+      selected: byStatus('Selected'),                    // 🆕
       offers: byStatus('Offer Issued'),
       hired: byStatus('Hired'),
       rejected: byStatus('Rejected'),

@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Plus, Search, Edit, Trash2, Eye, EyeOff, Star, MoreHorizontal,
   Building2, MapPin, Briefcase, Calendar, CheckCircle2, XCircle,
-  AlertTriangle, Loader2, Filter, X, Inbox,
+  AlertTriangle, Loader2, Filter, X, Inbox, Clock, 
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
@@ -428,15 +428,28 @@ function VacancyRow({
         <div className="flex flex-col items-end gap-2">
           {/* Status badges */}
           <div className="flex flex-wrap justify-end gap-1.5">
-            {vacancy.isActive ? (
-              <Badge className="border-transparent bg-emerald-500 text-white font-normal">
-                <CheckCircle2 className="mr-1 h-3 w-3" /> Published
-              </Badge>
-            ) : (
-              <Badge className="border-transparent bg-amber-500 text-white font-normal">
-                <XCircle className="mr-1 h-3 w-3" /> Draft
-              </Badge>
-            )}
+  {/* 🆕 Approval status */}
+  {vacancy.approvalStatus === 'Pending' && (
+    <Badge className="border-transparent bg-amber-500 text-white font-normal">
+      <Clock className="mr-1 h-3 w-3" /> Pending Approval
+    </Badge>
+  )}
+  {vacancy.approvalStatus === 'Rejected' && (
+    <Badge className="border-transparent bg-rose-500 text-white font-normal">
+      <XCircle className="mr-1 h-3 w-3" /> Rejected
+    </Badge>
+  )}
+
+  {/* Publishing status */}
+  {vacancy.isActive ? (
+    <Badge className="border-transparent bg-emerald-500 text-white font-normal">
+      <CheckCircle2 className="mr-1 h-3 w-3" /> Published
+    </Badge>
+  ) : (
+    <Badge variant="secondary" className="font-normal">
+      Draft
+    </Badge>
+  )}
             {vacancy.featured && (
               <Badge className="border-transparent bg-violet-500 text-white font-normal">
                 <Star className="mr-1 h-3 w-3" /> Featured
@@ -466,17 +479,33 @@ function VacancyRow({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {vacancy.approvalStatus !== 'Approved' && (
+  <DropdownMenuItem
+    onClick={async () => {
+      try {
+        await api.submitVacancyForApproval(vacancy.id);
+        toast.success('Submitted for approval');
+        onRefresh?.();
+      } catch {
+        toast.error('Failed to submit');
+      }
+    }}
+  >
+    <Clock className="mr-2 h-4 w-4 text-amber-600" />
+    Submit for Approval
+  </DropdownMenuItem>
+)}
                 <DropdownMenuItem onClick={() => onToggleActive(vacancy)}>
-                  {vacancy.isActive ? (
-                    <>
-                      <EyeOff className="mr-2 h-4 w-4" /> Unpublish
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="mr-2 h-4 w-4" /> Publish
-                    </>
-                  )}
-                </DropdownMenuItem>
+  {vacancy.isActive ? (
+    <>
+      <EyeOff className="mr-2 h-4 w-4" /> Unpublish
+    </>
+  ) : (
+    <>
+      <Eye className="mr-2 h-4 w-4" /> Publish
+    </>
+  )}
+</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onToggleFeatured(vacancy)}>
                   <Star className="mr-2 h-4 w-4" />
                   {vacancy.featured ? 'Remove from featured' : 'Mark as featured'}

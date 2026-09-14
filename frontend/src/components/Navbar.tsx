@@ -34,7 +34,8 @@ const navLinks = [
 
 const hrLinks = [
   { label: 'Dashboard', page: 'hr-dashboard' },
-  { label: 'Vacancies', page: 'hr-vacancies' },   // 🆕
+  { label: 'Vacancies', page: 'hr-vacancies' },
+  { label: 'Approvals', page: 'hr-approvals' },   // 🆕
   { label: 'Pipeline', page: 'hr-pipeline' },
   { label: 'Talent Search', page: 'hr-talent' },
 ];
