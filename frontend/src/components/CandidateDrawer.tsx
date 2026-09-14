@@ -1,15 +1,14 @@
-// src/components/CandidateDrawer.tsx
-
+// frontend/src/components/CandidateDrawer.tsx
 import { useMemo, useState, useEffect } from 'react';
 import {
   Mail, Phone, MapPin, FileText, Clock, Briefcase, GraduationCap,
-  Wallet, Calendar, MessageSquare, Send, User, FileCheck,
-  Download, ExternalLink,
+  Wallet, Calendar, MessageSquare, Send, ChevronRight, User, FileCheck,
+  Eye, Download, ExternalLink, Plus,
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
-import { api } from '@/lib/api';
+import { api, type Interview } from '@/lib/api';
 import {
-  pipelineStages, formatDateTime,
+  pipelineStages, formatDateTime, formatDate,
   type ApplicationStatus,
 } from '@/lib/data';
 import {
@@ -22,6 +21,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { InterviewScheduler } from '@/components/InterviewScheduler';
+import { InterviewList } from '@/components/InterviewList';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -36,6 +37,11 @@ export function CandidateDrawer() {
   const [vacancy, setVacancy] = useState<any>(null);
   const [previewDoc, setPreviewDoc] = useState<{ filename: string; name: string } | null>(null);
 
+  // Interview state
+  const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [interviewOpen, setInterviewOpen] = useState(false);
+  const [editingInterview, setEditingInterview] = useState<Interview | null>(null);
+
   const candidate = useMemo(
     () => candidates.find((c) => c.id === selectedCandidateId) || null,
     [candidates, selectedCandidateId]
@@ -43,14 +49,16 @@ export function CandidateDrawer() {
 
   const open = !!candidate;
 
-  // Fetch company and vacancy when candidate changes
+  // Fetch company + vacancy + interviews
   useEffect(() => {
     if (!candidate) {
       setCompany(null);
       setVacancy(null);
+      setInterviews([]);
       return;
     }
 
+    // Company + vacancy
     const fetchRelated = async () => {
       try {
         const promises: Promise<any>[] = [];
@@ -72,14 +80,38 @@ export function CandidateDrawer() {
       }
     };
 
+    // Interviews
+    const fetchInterviews = async () => {
+      try {
+        const data = await api.getCandidateInterviews(candidate.id);
+        setInterviews(data);
+      } catch (error) {
+        console.error('Failed to fetch interviews:', error);
+      }
+    };
+
     fetchRelated();
+    fetchInterviews();
   }, [candidate]);
+
+  const refreshInterviews = async () => {
+    if (!candidate) return;
+    try {
+      const fresh = await api.getCandidateInterviews(candidate.id);
+      setInterviews(fresh);
+    } catch (error) {
+      console.error('Failed to refresh interviews:', error);
+    }
+  };
 
   const handleClose = () => {
     setSelectedCandidateId(null);
     setNote('');
     setNewStatus('');
     setPreviewDoc(null);
+    setInterviews([]);
+    setEditingInterview(null);
+    setInterviewOpen(false);
   };
 
   if (!candidate) {
@@ -120,7 +152,7 @@ export function CandidateDrawer() {
     setPreviewDoc({ filename, name: docName });
   };
 
-  // Download handler with token authentication
+  // Download handler
   const handleDownload = async (filename: string, docName: string) => {
     if (!filename) {
       toast.error('Document file not available');
@@ -129,18 +161,23 @@ export function CandidateDrawer() {
     try {
       const url = api.getDownloadUrl(candidate.id, filename);
       const token = localStorage.getItem('ovid_auth_token');
+
       const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
+
       if (!res.ok) throw new Error('Download failed');
+
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
+
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = docName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       toast.success(`Downloaded ${docName}`);
     } catch (err) {
@@ -179,9 +216,18 @@ export function CandidateDrawer() {
           <div className="px-6 py-5">
             <Tabs defaultValue="profile">
               <TabsList className="w-full">
-                <TabsTrigger value="profile" className="flex-1"><User className="mr-1.5 h-3.5 w-3.5" /> Profile</TabsTrigger>
-                <TabsTrigger value="documents" className="flex-1"><FileText className="mr-1.5 h-3.5 w-3.5" /> Documents</TabsTrigger>
-                <TabsTrigger value="activity" className="flex-1"><MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Activity</TabsTrigger>
+                <TabsTrigger value="profile" className="flex-1">
+                  <User className="mr-1.5 h-3.5 w-3.5" /> Profile
+                </TabsTrigger>
+                <TabsTrigger value="documents" className="flex-1">
+                  <FileText className="mr-1.5 h-3.5 w-3.5" /> Documents
+                </TabsTrigger>
+                <TabsTrigger value="interviews" className="flex-1">
+                  <Calendar className="mr-1.5 h-3.5 w-3.5" /> Interviews
+                </TabsTrigger>
+                <TabsTrigger value="activity" className="flex-1">
+                  <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Activity
+                </TabsTrigger>
               </TabsList>
 
               {/* Profile tab */}
@@ -225,7 +271,14 @@ export function CandidateDrawer() {
 
                 <Section title="Quick Actions">
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => sendEmail('Schedule Interview')}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingInterview(null);
+                        setInterviewOpen(true);
+                      }}
+                    >
                       <Calendar className="mr-1.5 h-3.5 w-3.5" /> Schedule Interview
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => sendEmail('Rejection Notice')}>
@@ -266,7 +319,7 @@ export function CandidateDrawer() {
                               disabled={!doc.filename}
                               title={doc.filename ? 'Preview' : 'File not stored'}
                             >
-                              <ExternalLink className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -284,9 +337,37 @@ export function CandidateDrawer() {
                     </div>
                   )}
                   <p className="mt-3 text-xs text-muted-foreground">
-                    Click the preview icon to view PDFs and images securely, or the download icon to save the file.
+                    Click the eye icon to preview PDFs and images, or the download icon to save the file.
                   </p>
                 </Section>
+              </TabsContent>
+
+              {/* Interviews tab */}
+              <TabsContent value="interviews" className="mt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    Scheduled Interviews
+                  </h3>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setEditingInterview(null);
+                      setInterviewOpen(true);
+                    }}
+                    className="bg-accent text-accent-foreground hover:bg-accent/90"
+                  >
+                    <Plus className="mr-1.5 h-3.5 w-3.5" /> Schedule
+                  </Button>
+                </div>
+
+                <InterviewList
+                  interviews={interviews}
+                  onEdit={(i) => {
+                    setEditingInterview(i);
+                    setInterviewOpen(true);
+                  }}
+                  onRefresh={refreshInterviews}
+                />
               </TabsContent>
 
               {/* Activity tab */}
@@ -337,6 +418,23 @@ export function CandidateDrawer() {
           onClose={() => setPreviewDoc(null)}
         />
       )}
+
+      {/* Interview Scheduler Modal */}
+      <InterviewScheduler
+        open={interviewOpen}
+        onOpenChange={(o) => {
+          setInterviewOpen(o);
+          if (!o) setEditingInterview(null);
+        }}
+        candidateId={candidate.id}
+        candidateName={candidate.fullName}
+        editing={editingInterview}
+        onSaved={async () => {
+          setInterviewOpen(false);
+          setEditingInterview(null);
+          await refreshInterviews();
+        }}
+      />
     </>
   );
 }
@@ -392,7 +490,6 @@ function DocumentPreviewModal({
     };
   }, [candidateId, filename]);
 
-  // Cleanup blob URL
   useEffect(() => {
     return () => {
       if (blobUrl) URL.revokeObjectURL(blobUrl);
@@ -419,8 +516,8 @@ function DocumentPreviewModal({
       });
       if (!res.ok) throw new Error('Not found');
       const blob = await res.blob();
-      const openBlobUrl = URL.createObjectURL(blob);
-      window.open(openBlobUrl, '_blank');
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
     } catch {
       toast.error('Failed to open document');
     }
@@ -487,7 +584,7 @@ function DocumentPreviewModal({
               {!isPDF && !isImage && (
                 <div className="flex flex-col items-center justify-center h-full gap-3">
                   <p className="text-muted-foreground text-sm">
-                    Preview not available for this file type ({ext?.toUpperCase()})
+                    Preview not available for {ext?.toUpperCase()} files
                   </p>
                   <Button onClick={handleDownload}>
                     <Download className="h-4 w-4 mr-2" /> Download to View

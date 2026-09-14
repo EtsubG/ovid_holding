@@ -19,6 +19,7 @@ const vacancyRoutes = require('./routes/vacancies');
 const applicationRoutes = require('./routes/applications');
 const referenceRoutes = require('./routes/references');
 const exportRoutes = require('./routes/exports');           // 🆕 ADD THIS
+const interviewRoutes = require('./routes/interviews');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -73,6 +74,9 @@ app.use(
 
 // 🆕 Exports — protected inside the route file itself
 app.use('/api/exports', exportRoutes);
+
+app.use('/api/interviews', interviewRoutes);
+
 
 // ─────────────────────────────────────────────
 // Health check

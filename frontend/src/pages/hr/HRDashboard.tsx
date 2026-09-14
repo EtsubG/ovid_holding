@@ -4,13 +4,17 @@ import {
   CheckCircle2, Calendar, UserCheck,
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
-import { pipelineStages, formatDate, type ApplicationStatus } from '@/lib/data';
+import { pipelineStages, getCompany, getVacancy, formatDate, type ApplicationStatus } from '@/lib/data';
 import * as api from '@/lib/api';
 import type { DashboardStats } from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ExportMenu } from '@/components/ExportMenu';
+import type { Interview } from '@/lib/api';
+import { InterviewList } from '@/components/InterviewList';
+import { InterviewScheduler } from '@/components/InterviewScheduler';
+
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -18,6 +22,27 @@ export function HRDashboard() {
   const { candidates, navigate, setSelectedCandidateId } = useApp();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [upcomingInterviews, setUpcomingInterviews] = useState<Interview[]>([]);
+const [interviewStats, setInterviewStats] = useState<any>(null);
+const [editingInterview, setEditingInterview] = useState<Interview | null>(null);
+const [schedulerOpen, setSchedulerOpen] = useState(false);
+
+const loadInterviewData = async () => {
+  try {
+    const [upcoming, stats] = await Promise.all([
+      api.getUpcomingInterviews(),
+      api.getInterviewStats(),
+    ]);
+    setUpcomingInterviews(upcoming.slice(0, 5)); // Top 5
+    setInterviewStats(stats);
+  } catch (err) {
+    console.error('Failed to load interviews:', err);
+  }
+};
+
+useEffect(() => {
+  loadInterviewData();
+}, []);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -154,6 +179,56 @@ export function HRDashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Upcoming Interviews */}
+<div className="mt-6">
+  <Card className="p-6">
+    <div className="mb-4 flex items-center justify-between">
+      <div>
+        <h2 className="font-serif text-lg font-semibold">Upcoming Interviews</h2>
+        {interviewStats && (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {interviewStats.today} today · {interviewStats.thisWeek} this week
+          </p>
+        )}
+      </div>
+      {interviewStats && (
+        <Badge variant="secondary" className="font-normal">
+          {interviewStats.upcoming} upcoming
+        </Badge>
+      )}
+    </div>
+
+    <InterviewList
+      interviews={upcomingInterviews}
+      showCandidate
+      onEdit={(i) => {
+        setEditingInterview(i);
+        setSchedulerOpen(true);
+      }}
+      onRefresh={loadInterviewData}
+    />
+  </Card>
+</div>
+
+{/* Scheduler for editing from dashboard */}
+{editingInterview && (
+  <InterviewScheduler
+    open={schedulerOpen}
+    onOpenChange={(o) => {
+      setSchedulerOpen(o);
+      if (!o) setEditingInterview(null);
+    }}
+    candidateId={editingInterview.candidateId}
+    candidateName={editingInterview.candidate?.fullName || 'Candidate'}
+    editing={editingInterview}
+    onSaved={() => {
+      setSchedulerOpen(false);
+      setEditingInterview(null);
+      loadInterviewData();
+    }}
+  />
+)}
 
       <div className="mt-6">
         <Card className="p-6">

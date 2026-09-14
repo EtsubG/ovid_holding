@@ -1,9 +1,10 @@
-// models/index.js
+// backend/src/models/index.js
 const sequelize = require('../config/database');
 const Company = require('./Company');
 const Vacancy = require('./Vacancy');
 const Candidate = require('./Candidate');
 const User = require('./User');
+const Interview = require('./Interview');   // 🆕
 
 // Company ↔ Vacancy
 Company.hasMany(Vacancy, { foreignKey: 'companyId', as: 'vacancies' });
@@ -21,10 +22,15 @@ Candidate.belongsTo(Vacancy, { foreignKey: 'vacancyId', as: 'vacancy' });
 Company.hasMany(User, { foreignKey: 'companyId', as: 'users' });
 User.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
 
+// 🆕 Candidate ↔ Interview
+Candidate.hasMany(Interview, { foreignKey: 'candidateId', as: 'interviews' });
+Interview.belongsTo(Candidate, { foreignKey: 'candidateId', as: 'candidate' });
+
 module.exports = {
   sequelize,
   Company,
   Vacancy,
   Candidate,
   User,
+  Interview,
 };

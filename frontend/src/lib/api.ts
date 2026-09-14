@@ -214,6 +214,87 @@ export async function getPipelineStages(): Promise<PipelineStage[]> {
   return fetchAPI<PipelineStage[]>('/references/pipeline-stages');
 }
 
+
+// frontend/src/lib/api.ts
+
+// ─────────────────────────────────────────────
+// Interviews
+// ─────────────────────────────────────────────
+export interface Interview {
+  id: string;
+  candidateId: string;
+  title: string;
+  type: 'Phone' | 'Video' | 'In-Person' | 'Technical' | 'Behavioral' | 'Final';
+  scheduledDate: string;
+  duration: number;
+  location?: string;
+  meetingLink?: string;
+  interviewerName?: string;
+  interviewerEmail?: string;
+  status: 'Scheduled' | 'Completed' | 'Cancelled' | 'Rescheduled' | 'No-Show';
+  notes?: string;
+  feedback?: string;
+  rating?: number;
+  createdAt: string;
+  updatedAt: string;
+  candidate?: {
+    id: string;
+    fullName: string;
+    email: string;
+    vacancy?: { id: string; title: string };
+    company?: { id: string; name: string };
+  };
+}
+
+export interface CreateInterviewInput {
+  candidateId: string;
+  title: string;
+  type: string;
+  scheduledDate: string;
+  duration?: number;
+  location?: string;
+  meetingLink?: string;
+  interviewerName?: string;
+  interviewerEmail?: string;
+  notes?: string;
+}
+
+export async function getInterviews(filters?: Record<string, string>): Promise<Interview[]> {
+  const params = new URLSearchParams(filters || {});
+  const query = params.toString();
+  return fetchAPI<Interview[]>(`/interviews${query ? `?${query}` : ''}`);
+}
+
+export async function getUpcomingInterviews(): Promise<Interview[]> {
+  return fetchAPI<Interview[]>('/interviews?upcoming=true');
+}
+
+export async function getInterviewStats() {
+  return fetchAPI('/interviews/stats');
+}
+
+export async function getCandidateInterviews(candidateId: string): Promise<Interview[]> {
+  return fetchAPI<Interview[]>(`/interviews/candidate/${candidateId}`);
+}
+
+export async function createInterview(data: CreateInterviewInput): Promise<Interview> {
+  return fetchAPI<Interview>('/interviews', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateInterview(id: string, data: Partial<CreateInterviewInput> & { status?: string; feedback?: string; rating?: number }): Promise<Interview> {
+  return fetchAPI<Interview>(`/interviews/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteInterview(id: string) {
+  return fetchAPI(`/interviews/${id}`, { method: 'DELETE' });
+}
+
 // ── Auth API ──────────────────────────────
 export interface LoginResponse {
   token: string;
@@ -421,5 +502,14 @@ export const api = {
   //
   exportCandidatesExcel,
   exportCandidatesPDF,
+  // Interviews
+  getInterviews,
+  getUpcomingInterviews,
+  getInterviewStats,
+  getCandidateInterviews,
+  createInterview,
+  updateInterview,
+  deleteInterview,
+
 
 };
