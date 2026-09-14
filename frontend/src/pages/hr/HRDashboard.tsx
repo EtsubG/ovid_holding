@@ -10,6 +10,7 @@ import type { DashboardStats } from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ExportMenu } from '@/components/ExportMenu';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -71,10 +72,19 @@ export function HRDashboard() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl font-semibold tracking-tight">HR Dashboard</h1>
-        <p className="mt-1 text-muted-foreground">Recruitment overview across all Ovid companies.</p>
-      </div>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <h1 className="font-serif text-3xl font-semibold tracking-tight">HR Dashboard</h1>
+    <p className="mt-1 text-muted-foreground">
+      Recruitment overview across all Ovid companies.
+    </p>
+  </div>
+
+  <ExportMenu
+    count={stats.total}
+    filters={{}}   // No filters — export everything
+  />
+</div>
 
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-6">
         {statCards.map((s) => (

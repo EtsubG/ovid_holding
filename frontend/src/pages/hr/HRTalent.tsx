@@ -11,11 +11,13 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { ExportMenu } from '@/components/ExportMenu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+
 
 export function HRTalent() {
   const { candidates, setSelectedCandidateId } = useApp();
@@ -116,13 +118,22 @@ export function HRTalent() {
       </Card>
 
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {filtered.length} {filtered.length === 1 ? 'candidate' : 'candidates'} found
-        </p>
-        <Button variant="outline" size="sm">
-          <Download className="mr-1.5 h-3.5 w-3.5" /> Export
-        </Button>
-      </div>
+  <p className="text-sm text-muted-foreground">
+    {filtered.length} {filtered.length === 1 ? 'candidate' : 'candidates'} found
+  </p>
+
+  <ExportMenu
+    size="sm"
+    count={filtered.length}
+    filters={{
+      company: company !== 'all' ? company : '',
+      department: department !== 'all' ? department : '',
+      location: location !== 'all' ? location : '',
+      status: status !== 'all' ? status : '',
+      search: search || '',
+    }}
+  />
+</div>
 
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">

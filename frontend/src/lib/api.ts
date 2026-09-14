@@ -30,6 +30,47 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
   return response.json();
 }
 
+// frontend/src/lib/api.ts
+
+// ─────────────────────────────────────────────
+// Export helpers
+// ─────────────────────────────────────────────
+async function downloadFile(endpoint: string, filename: string) {
+  const token = localStorage.getItem('ovid_auth_token');
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Download failed');
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function exportCandidatesExcel(filters?: Record<string, string>) {
+  const params = new URLSearchParams(filters || {});
+  const query = params.toString();
+  const filename = `candidates-${new Date().toISOString().split('T')[0]}.xlsx`;
+  await downloadFile(`/exports/candidates/excel${query ? `?${query}` : ''}`, filename);
+}
+
+export async function exportCandidatesPDF(filters?: Record<string, string>) {
+  const params = new URLSearchParams(filters || {});
+  const query = params.toString();
+  const filename = `candidates-${new Date().toISOString().split('T')[0]}.pdf`;
+  await downloadFile(`/exports/candidates/pdf${query ? `?${query}` : ''}`, filename);
+}
+
 // ── Companies ────────────────────────────────
 export async function getCompanies(): Promise<Company[]> {
   return fetchAPI<Company[]>('/companies');
@@ -377,5 +418,8 @@ export const api = {
   toggleVacancyActive,
   toggleVacancyFeatured,
   getAllVacanciesAdmin,
+  //
+  exportCandidatesExcel,
+  exportCandidatesPDF,
 
 };

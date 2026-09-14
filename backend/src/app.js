@@ -18,6 +18,7 @@ const companyRoutes = require('./routes/companies');
 const vacancyRoutes = require('./routes/vacancies');
 const applicationRoutes = require('./routes/applications');
 const referenceRoutes = require('./routes/references');
+const exportRoutes = require('./routes/exports');           // 🆕 ADD THIS
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -56,10 +57,6 @@ app.use('/api/references', referenceRoutes);
 // Public application submission (no auth required)
 app.post(
   '/api/applications',
-  (req, res, next) => {
-    // Allow public to submit — auth handled in controller
-    next();
-  },
   require('./controllers/applicationController').submitApplication
 );
 
@@ -73,6 +70,9 @@ app.use(
   applyCompanyScope,
   applicationRoutes
 );
+
+// 🆕 Exports — protected inside the route file itself
+app.use('/api/exports', exportRoutes);
 
 // ─────────────────────────────────────────────
 // Health check
