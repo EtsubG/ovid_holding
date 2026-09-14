@@ -100,26 +100,26 @@ exports.createVacancy = async (req, res) => {
       });
     }
 
+    // 🆕 Company HR can only create vacancies for their own company
+    const { canAccessCompany } = require('../middleware/auth');
+    if (!canAccessCompany(req, value.companyId)) {
+      return res.status(403).json({
+        error: 'You can only create vacancies for your own company',
+      });
+    }
+
     // Verify company exists
     const company = await Company.findByPk(value.companyId);
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
-    }
+    if (!company) return res.status(404).json({ error: 'Company not found' });
 
-    // Auto-generate ID if not provided
-    if (!value.id) {
-      value.id = `v-${uuidv4().slice(0, 8)}`;
-      // In createVacancy, change the created vacancy to have isActive: false
-// Just make sure the frontend sends isActive: false OR override it here:
-value.isActive = false;   // Force drafts — approval required before publishing
-value.approvalStatus = 'Pending';
-    }
+    if (!value.id) value.id = `v-${uuidv4().slice(0, 8)}`;
 
-    // Ensure ID is unique
     const existing = await Vacancy.findByPk(value.id);
-    if (existing) {
-      return res.status(409).json({ error: 'Vacancy ID already exists' });
-    }
+    if (existing) return res.status(409).json({ error: 'Vacancy ID already exists' });
+
+    // 🆕 New vacancies start as drafts pending approval
+    value.isActive = false;
+    value.approvalStatus = 'Pending';
 
     const vacancy = await Vacancy.create(value);
 
@@ -143,6 +143,12 @@ exports.updateVacancy = async (req, res) => {
     if (!vacancy) {
       return res.status(404).json({ error: 'Vacancy not found' });
     }
+
+    // Add this check to updateVacancy, deleteVacancy, toggleVacancyActive:
+const { canAccessCompany } = require('../middleware/auth');
+if (!canAccessCompany(req, vacancy.companyId)) {
+  return res.status(403).json({ error: 'You do not have access to this vacancy' });
+}
 
     // Partial update — validate only provided fields
     const { error, value } = vacancySchema
@@ -185,6 +191,11 @@ exports.deleteVacancy = async (req, res) => {
     if (!vacancy) {
       return res.status(404).json({ error: 'Vacancy not found' });
     }
+    // Add this check to updateVacancy, deleteVacancy, toggleVacancyActive:
+const { canAccessCompany } = require('../middleware/auth');
+if (!canAccessCompany(req, vacancy.companyId)) {
+  return res.status(403).json({ error: 'You do not have access to this vacancy' });
+}
 
     await vacancy.destroy();
     res.json({ message: 'Vacancy deleted successfully', id: vacancy.id });
@@ -210,6 +221,12 @@ exports.toggleVacancyActive = async (req, res) => {
         error: 'Vacancy must be approved before it can be published',
       });
     }
+
+    // Add this check to updateVacancy, deleteVacancy, toggleVacancyActive:
+const { canAccessCompany } = require('../middleware/auth');
+if (!canAccessCompany(req, vacancy.companyId)) {
+  return res.status(403).json({ error: 'You do not have access to this vacancy' });
+}
 
     await vacancy.update({ isActive: !vacancy.isActive });
 

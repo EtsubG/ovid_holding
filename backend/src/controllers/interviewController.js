@@ -8,15 +8,21 @@ const { Op } = require('sequelize');
 // ─────────────────────────────────────────────
 exports.getAllInterviews = async (req, res) => {
   try {
+    const { Op } = require('sequelize');
     const { status, upcoming, candidateId } = req.query;
-    const where = {};
 
+    const where = {};
     if (status && status !== 'all') where.status = status;
     if (candidateId) where.candidateId = candidateId;
-
     if (upcoming === 'true') {
       where.scheduledDate = { [Op.gte]: new Date() };
       where.status = 'Scheduled';
+    }
+
+    // 🆕 Company HR scope: only interviews for their company's candidates
+    const candidateWhere = {};
+    if (req.companyScope) {
+      candidateWhere.preferredCompany = req.companyScope;
     }
 
     const interviews = await Interview.findAll({
@@ -25,6 +31,7 @@ exports.getAllInterviews = async (req, res) => {
         {
           model: Candidate,
           as: 'candidate',
+          where: Object.keys(candidateWhere).length ? candidateWhere : undefined,
           include: [
             { model: Vacancy, as: 'vacancy' },
             { model: Company, as: 'company' },

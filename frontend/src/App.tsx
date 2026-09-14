@@ -1,7 +1,7 @@
 // frontend/src/App.tsx
 import { Suspense, lazy } from 'react';
 import { AppProvider, useApp } from '@/lib/app-context';
-import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { AuthProvider } from '@/lib/auth-context';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { Toaster } from '@/components/ui/sonner';
@@ -25,81 +25,75 @@ const HRPipeline = lazy(() => import('@/pages/hr/HRPipeline').then((m) => ({ def
 const HRTalent = lazy(() => import('@/pages/hr/HRTalent').then((m) => ({ default: m.HRTalent })));
 const HRVacancies = lazy(() => import('@/pages/hr/HRVacancies').then((m) => ({ default: m.HRVacancies })));
 const HRVacancyApprovals = lazy(() => import('@/pages/hr/HRVacancyApprovals').then((m) => ({ default: m.HRVacancyApprovals })));
+const HRCompanies = lazy(() => import('@/pages/hr/HRCompanies').then((m) => ({ default: m.HRCompanies })));
 
+// ─────────────────────────────────────────────
+// Renders ONLY the page content (no Navbar/Footer)
+// Used by both the public shell and the login shell
+// ─────────────────────────────────────────────
+function PageContent() {
+  const { page } = useApp();
 
+  switch (page) {
+    case 'home': return <Home />;
+    case 'vacancies': return <Vacancies />;
+    case 'vacancy-detail': return <VacancyDetail />;
+    case 'companies': return <Companies />;
+    case 'talent-pool': return <TalentPool />;
+    case 'about': return <About />;
+    case 'internships': return <Internships />;
+    case 'faqs': return <FAQs />;
+    case 'contact': return <Contact />;
+    case 'privacy': return <Privacy />;
 
+    case 'hr-dashboard':
+      return (
+        <ProtectedRoute allow={['system_admin', 'holding_hr', 'company_hr', 'management']}>
+          <HRDashboard />
+        </ProtectedRoute>
+      );
+    case 'hr-pipeline':
+      return (
+        <ProtectedRoute allow={['system_admin', 'holding_hr', 'company_hr', 'management']}>
+          <HRPipeline />
+        </ProtectedRoute>
+      );
+    case 'hr-talent':
+      return (
+        <ProtectedRoute allow={['system_admin', 'holding_hr', 'company_hr', 'management']}>
+          <HRTalent />
+        </ProtectedRoute>
+      );
+    case 'hr-vacancies':
+      return (
+        <ProtectedRoute allow={['system_admin', 'holding_hr', 'company_hr', 'management']}>
+          <HRVacancies />
+        </ProtectedRoute>
+      );
 
-function Router() {
-  const { page, hrMode } = useApp();
-  const { isAuthenticated } = useAuth();
-
-  const renderPage = () => {
-    switch (page) {
-      // Public
-      case 'home': return <Home />;
-      case 'vacancies': return <Vacancies />;
-      case 'vacancy-detail': return <VacancyDetail />;
-      case 'companies': return <Companies />;
-      case 'talent-pool': return <TalentPool />;
-      case 'about': return <About />;
-      case 'internships': return <Internships />;
-      case 'faqs': return <FAQs />;
-      case 'contact': return <Contact />;
-      case 'privacy': return <Privacy />;
-      case 'login': return <Login />;
-
-      // Protected HR pages
-      case 'hr-dashboard':
-        return (
-          <ProtectedRoute allow={['admin', 'holding_hr', 'company_hr', 'management']}>
-            <HRDashboard />
-          </ProtectedRoute>
-        );
-      case 'hr-pipeline':
-        return (
-          <ProtectedRoute allow={['admin', 'holding_hr', 'company_hr']}>
-            <HRPipeline />
-          </ProtectedRoute>
-        );
-
-      case 'hr-approvals':
+    case 'hr-companies':
   return (
-    <ProtectedRoute allow={['admin', 'holding_hr']}>
-      <HRVacancyApprovals />
+    <ProtectedRoute allow={['system_admin']}>
+      <HRCompanies />
     </ProtectedRoute>
   );  
-      case 'hr-talent':
-        return (
-          <ProtectedRoute allow={['admin', 'holding_hr', 'company_hr', 'management']}>
-            <HRTalent />
-          </ProtectedRoute>
-        );
+    case 'hr-approvals':
+      return (
+        <ProtectedRoute allow={['system_admin', 'holding_hr']}>
+          <HRVacancyApprovals />
+        </ProtectedRoute>
+      );
 
-
-
-      case 'hr-vacancies':
-  return (
-    <ProtectedRoute allow={['admin', 'holding_hr', 'company_hr']}>
-      <HRVacancies />
-    </ProtectedRoute>
-  );  
-
-      default:
-        return <Home />;
-    }
-  };
-
-  // Hide Footer/Navbar on login page
-  const isLoginPage = page === 'login';
-
-  if (isLoginPage) {
-    return (
-      <Suspense fallback={null}>
-        <Login />
-        <Toaster position="top-right" richColors />
-      </Suspense>
-    );
+    default:
+      return <Home />;
   }
+}
+
+// ─────────────────────────────────────────────
+// Main layout — Navbar + content + Footer
+// ─────────────────────────────────────────────
+function MainLayout() {
+  const { page, hrMode } = useApp();
 
   return (
     <div className="flex min-h-screen flex-col bg-background bg-grain">
@@ -113,7 +107,7 @@ function Router() {
           }
         >
           <div key={page} className="animate-fade-in">
-            {renderPage()}
+            <PageContent />
           </div>
         </Suspense>
       </main>
@@ -123,6 +117,39 @@ function Router() {
   );
 }
 
+// ─────────────────────────────────────────────
+// Full-screen layout — for login page
+// ─────────────────────────────────────────────
+function LoginLayout() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      }
+    >
+      <Login />
+    </Suspense>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Router — decides which layout to use
+// ─────────────────────────────────────────────
+function Router() {
+  const { page } = useApp();
+
+  if (page === 'login') {
+    return <LoginLayout />;
+  }
+
+  return <MainLayout />;
+}
+
+// ─────────────────────────────────────────────
+// App — wraps everything in providers
+// ─────────────────────────────────────────────
 function App() {
   return (
     <AppProvider>

@@ -5,7 +5,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 const TOKEN_KEY = 'ovid_auth_token';
 const USER_KEY = 'ovid_auth_user';
 
-export type UserRole = 'admin' | 'holding_hr' | 'company_hr' | 'management';
+export type UserRole = 'system_admin' | 'holding_hr' | 'company_hr' | 'management';
 
 export interface AuthUser {
   id: string;
@@ -21,11 +21,25 @@ interface AuthContextValue {
   token: string | null;
   loading: boolean;
   isAuthenticated: boolean;
-  isAdmin: boolean;
-  isHR: boolean;
+
+  // 🆕 Role helpers
+  isSystemAdmin: boolean;
   isHoldingHR: boolean;
   isCompanyHR: boolean;
   isManagement: boolean;
+
+  // 🆕 Combined permissions
+  canManageAllCompanies: boolean;   // system_admin OR holding_hr
+  canWrite: boolean;                // any role except management
+  canManageUsers: boolean;          // system_admin only
+  canApproveVacancies: boolean;     // system_admin OR holding_hr
+  canCreateVacancy: boolean;        // system_admin, holding_hr, company_hr
+  canViewDashboard: boolean;        // all roles
+
+  // 🆕 Scope helpers
+  getCompanyFilter: () => string | null;   // returns companyId if company_hr, else null
+  hasAccessToCompany: (companyId: string) => boolean;
+
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -38,9 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ─────────────────────────────────────────────
-  // Load token/user from localStorage on mount
-  // ─────────────────────────────────────────────
   useEffect(() => {
     const storedToken = localStorage.getItem(TOKEN_KEY);
     const storedUser = localStorage.getItem(USER_KEY);
@@ -57,9 +68,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  // ─────────────────────────────────────────────
-  // Login
-  // ─────────────────────────────────────────────
   const login = useCallback(async (email: string, password: string) => {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
@@ -79,9 +87,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   }, []);
 
-  // ─────────────────────────────────────────────
-  // Logout
-  // ─────────────────────────────────────────────
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
@@ -89,9 +94,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  // ─────────────────────────────────────────────
-  // Refresh user (call `/auth/me`)
-  // ─────────────────────────────────────────────
   const refreshUser = useCallback(async () => {
     if (!token) return;
     try {
@@ -99,35 +101,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
-        // Token invalid/expired → logout
         if (res.status === 401) logout();
         return;
       }
       const fresh = await res.json();
       setUser(fresh);
       localStorage.setItem(USER_KEY, JSON.stringify(fresh));
-    } catch {
-      // Network error — keep the existing user
-    }
+    } catch {}
   }, [token, logout]);
 
-  // Refresh user every 5 minutes when logged in
   useEffect(() => {
     if (!token) return;
     const interval = setInterval(refreshUser, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [token, refreshUser]);
 
+  // Compute role flags
+  const isSystemAdmin = user?.role === 'system_admin';
+  const isHoldingHR = user?.role === 'holding_hr';
+  const isCompanyHR = user?.role === 'company_hr';
+  const isManagement = user?.role === 'management';
+
   const value: AuthContextValue = {
     user,
     token,
     loading,
     isAuthenticated: !!user && !!token,
-    isAdmin: user?.role === 'admin',
-    isHR: user?.role === 'admin' || user?.role === 'holding_hr' || user?.role === 'company_hr',
-    isHoldingHR: user?.role === 'holding_hr',
-    isCompanyHR: user?.role === 'company_hr',
-    isManagement: user?.role === 'management',
+
+    isSystemAdmin,
+    isHoldingHR,
+    isCompanyHR,
+    isManagement,
+
+    canManageAllCompanies: isSystemAdmin || isHoldingHR,
+    canWrite: !isManagement,
+    canManageUsers: isSystemAdmin,
+    canApproveVacancies: isSystemAdmin || isHoldingHR,
+    canCreateVacancy: isSystemAdmin || isHoldingHR || isCompanyHR,
+    canViewDashboard: true,
+
+    getCompanyFilter: () => (isCompanyHR && user?.companyId ? user.companyId : null),
+    hasAccessToCompany: (companyId: string) => {
+      if (isSystemAdmin || isHoldingHR || isManagement) return true;
+      if (isCompanyHR) return user?.companyId === companyId;
+      return false;
+    },
+
     login,
     logout,
     refreshUser,

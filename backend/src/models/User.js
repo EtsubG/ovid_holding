@@ -13,9 +13,7 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
-    validate: {
-      isEmail: true,
-    },
+    validate: { isEmail: true },
   },
   password: {
     type: DataTypes.STRING,
@@ -27,10 +25,10 @@ const User = sequelize.define('User', {
   },
   role: {
     type: DataTypes.ENUM(
-      'admin',        // System administrator
-      'holding_hr',   // Holding-level HR (sees all companies)
-      'company_hr',   // Company-level HR (only own company)
-      'management'    // Read-only management view
+      'system_admin',   // 🆕 renamed from 'admin'
+      'holding_hr',
+      'company_hr',
+      'management'
     ),
     defaultValue: 'company_hr',
     allowNull: false,
@@ -38,10 +36,7 @@ const User = sequelize.define('User', {
   companyId: {
     type: DataTypes.STRING(50),
     allowNull: true,
-    references: {
-      model: 'companies',
-      key: 'id',
-    },
+    references: { model: 'companies', key: 'id' },
   },
   isActive: {
     type: DataTypes.BOOLEAN,
@@ -56,11 +51,8 @@ const User = sequelize.define('User', {
   timestamps: true,
 });
 
-// Hash password before save
 User.beforeCreate(async (user) => {
-  if (user.password) {
-    user.password = await bcrypt.hash(user.password, 10);
-  }
+  if (user.password) user.password = await bcrypt.hash(user.password, 10);
 });
 
 User.beforeUpdate(async (user) => {
@@ -69,12 +61,10 @@ User.beforeUpdate(async (user) => {
   }
 });
 
-// Compare password
 User.prototype.comparePassword = async function (password) {
   return bcrypt.compare(password, this.password);
 };
 
-// Hide password when serializing
 User.prototype.toJSON = function () {
   const values = { ...this.get() };
   delete values.password;

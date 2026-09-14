@@ -105,11 +105,37 @@ const vacancySchema = Joi.object({
   isActive: Joi.boolean().default(true),
 }).unknown(true);
 
-// Export it
+// Add to backend/src/validators/index.js
+
+const companySchema = Joi.object({
+  id: Joi.string()
+    .min(3)
+    .max(50)
+    .pattern(/^[a-z0-9-]+$/)
+    .required()
+    .messages({
+      'string.pattern.base':
+        'ID must only contain lowercase letters, numbers, and hyphens (e.g. "ovid-aerospace")',
+    }),
+  name: Joi.string().min(3).max(100).required(),
+  shortName: Joi.string().min(2).max(10).required(),
+  tagline: Joi.string().min(5).max(200).required(),
+  description: Joi.string().min(20).required(),
+  industry: Joi.string().min(3).max(100).required(),
+  location: Joi.string().min(3).max(100).required(),
+  employees: Joi.string().min(1).max(50).required(),
+  founded: Joi.string().max(10).required(),
+  accent: Joi.string().max(100).required(),
+  icon: Joi.string().max(50).required(),
+}).unknown(true);
+
+// Update the exports:
 module.exports = {
   applicationSchema,
   statusUpdateSchema,
   noteSchema,
   talentPoolSchema,
-  vacancySchema,   
+  vacancySchema,
+  companySchema,   // 🆕
 };
+

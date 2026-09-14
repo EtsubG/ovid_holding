@@ -3,9 +3,10 @@ import { useMemo, useState, useEffect } from 'react';
 import {
   Mail, Phone, MapPin, FileText, Clock, Briefcase, GraduationCap,
   Wallet, Calendar, MessageSquare, Send, ChevronRight, User, FileCheck,
-  Eye, Download, ExternalLink, Plus,
+  Eye, Download, ExternalLink, Plus, Lock,
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
+import { useAuth } from '@/lib/auth-context';
 import { api, type Interview } from '@/lib/api';
 import {
   pipelineStages, formatDateTime, formatDate,
@@ -18,7 +19,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { InterviewScheduler } from '@/components/InterviewScheduler';
@@ -31,6 +34,8 @@ export function CandidateDrawer() {
     selectedCandidateId, setSelectedCandidateId, candidates,
     updateCandidateStatus, addCandidateNote,
   } = useApp();
+  const { canWrite, isManagement } = useAuth();
+
   const [note, setNote] = useState('');
   const [newStatus, setNewStatus] = useState<ApplicationStatus | ''>('');
   const [company, setCompany] = useState<any>(null);
@@ -49,7 +54,7 @@ export function CandidateDrawer() {
 
   const open = !!candidate;
 
-  // Fetch company + vacancy + interviews
+  // Fetch related data
   useEffect(() => {
     if (!candidate) {
       setCompany(null);
@@ -58,7 +63,6 @@ export function CandidateDrawer() {
       return;
     }
 
-    // Company + vacancy
     const fetchRelated = async () => {
       try {
         const promises: Promise<any>[] = [];
@@ -80,7 +84,6 @@ export function CandidateDrawer() {
       }
     };
 
-    // Interviews
     const fetchInterviews = async () => {
       try {
         const data = await api.getCandidateInterviews(candidate.id);
@@ -119,6 +122,7 @@ export function CandidateDrawer() {
   }
 
   const handleStatusChange = async (value: ApplicationStatus) => {
+    if (!canWrite) return;
     try {
       await updateCandidateStatus(candidate.id, value);
       setNewStatus('');
@@ -129,7 +133,7 @@ export function CandidateDrawer() {
   };
 
   const handleAddNote = async () => {
-    if (!note.trim()) return;
+    if (!canWrite || !note.trim()) return;
     try {
       await addCandidateNote(candidate.id, note.trim());
       setNote('');
@@ -139,11 +143,6 @@ export function CandidateDrawer() {
     }
   };
 
-  const sendEmail = (type: string) => {
-    toast.success(`${type} email queued for ${candidate.fullName}`);
-  };
-
-  // Preview handler
   const handlePreview = (filename: string, docName: string) => {
     if (!filename) {
       toast.error('Document file not available');
@@ -152,7 +151,6 @@ export function CandidateDrawer() {
     setPreviewDoc({ filename, name: docName });
   };
 
-  // Download handler
   const handleDownload = async (filename: string, docName: string) => {
     if (!filename) {
       toast.error('Document file not available');
@@ -203,13 +201,24 @@ export function CandidateDrawer() {
                   </SheetDescription>
                 </div>
               </div>
+
+              {isManagement && (
+                <Badge variant="outline" className="font-normal gap-1">
+                  <Lock className="h-3 w-3" /> Read-only
+                </Badge>
+              )}
             </div>
+
             <div className="mt-3 flex flex-wrap gap-2">
               <Badge className={cn('border-transparent font-normal', statusColor(candidate.status))}>
                 {candidate.status}
               </Badge>
-              {vacancy && <Badge variant="secondary" className="font-normal">{vacancy.title}</Badge>}
-              {company && <Badge variant="outline" className="font-normal">{company.name}</Badge>}
+              {vacancy && (
+                <Badge variant="secondary" className="font-normal">{vacancy.title}</Badge>
+              )}
+              {company && (
+                <Badge variant="outline" className="font-normal">{company.name}</Badge>
+              )}
             </div>
           </SheetHeader>
 
@@ -235,7 +244,9 @@ export function CandidateDrawer() {
                 <Section title="Contact Information">
                   <InfoRow icon={Mail} label="Email" value={candidate.email} />
                   <InfoRow icon={Phone} label="Phone" value={candidate.phone} />
-                  {candidate.altPhone && <InfoRow icon={Phone} label="Alt Phone" value={candidate.altPhone} />}
+                  {candidate.altPhone && (
+                    <InfoRow icon={Phone} label="Alt Phone" value={candidate.altPhone} />
+                  )}
                   <InfoRow icon={MapPin} label="City" value={candidate.city} />
                   <InfoRow icon={User} label="Nationality" value={candidate.nationality} />
                 </Section>
@@ -250,45 +261,77 @@ export function CandidateDrawer() {
 
                 <Section title="Employment Details">
                   <InfoRow icon={Briefcase} label="Current Status" value={candidate.currentStatus} />
-                  {candidate.currentEmployer && <InfoRow icon={Briefcase} label="Employer" value={candidate.currentEmployer} />}
-                  {candidate.currentRole && <InfoRow icon={Briefcase} label="Role" value={candidate.currentRole} />}
+                  {candidate.currentEmployer && (
+                    <InfoRow icon={Briefcase} label="Employer" value={candidate.currentEmployer} />
+                  )}
+                  {candidate.currentRole && (
+                    <InfoRow icon={Briefcase} label="Role" value={candidate.currentRole} />
+                  )}
                   <InfoRow icon={Clock} label="Total Experience" value={candidate.totalExperience} />
                   <InfoRow icon={Clock} label="Relevant Experience" value={candidate.relevantExperience} />
                   <InfoRow icon={Wallet} label="Expected Salary" value={candidate.expectedSalary} />
                   <InfoRow icon={Calendar} label="Availability" value={candidate.availability} />
                 </Section>
 
-                <Section title="Update Status">
-                  <Select value={newStatus || undefined} onValueChange={(v) => handleStatusChange(v as ApplicationStatus)}>
-                    <SelectTrigger><SelectValue placeholder="Change pipeline status" /></SelectTrigger>
-                    <SelectContent>
-                      {pipelineStages.map((s) => (
-                        <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Section>
-
-                <Section title="Quick Actions">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingInterview(null);
-                        setInterviewOpen(true);
-                      }}
+                {/* Update Status — only if canWrite */}
+                {canWrite ? (
+                  <Section title="Update Status">
+                    <Select
+                      value={newStatus || undefined}
+                      onValueChange={(v) => handleStatusChange(v as ApplicationStatus)}
                     >
-                      <Calendar className="mr-1.5 h-3.5 w-3.5" /> Schedule Interview
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => sendEmail('Rejection Notice')}>
-                      <Send className="mr-1.5 h-3.5 w-3.5" /> Send Rejection
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => sendEmail('Offer Letter')}>
-                      <FileCheck className="mr-1.5 h-3.5 w-3.5" /> Send Offer
-                    </Button>
-                  </div>
-                </Section>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Change pipeline status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pipelineStages.map((s) => (
+                          <SelectItem key={s.key} value={s.key}>
+                            {s.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Section>
+                ) : (
+                  <Section title="Update Status">
+                    <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-secondary/30 p-3 text-sm text-muted-foreground">
+                      <Lock className="h-4 w-4" />
+                      Read-only access — management cannot modify candidates.
+                    </div>
+                  </Section>
+                )}
+
+                {/* Quick actions — only if canWrite */}
+                {canWrite && (
+                  <Section title="Quick Actions">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingInterview(null);
+                          setInterviewOpen(true);
+                        }}
+                      >
+                        <Calendar className="mr-1.5 h-3.5 w-3.5" /> Schedule Interview
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toast.success(`Rejection email queued for ${candidate.fullName}`)}
+                      >
+                        <Send className="mr-1.5 h-3.5 w-3.5" /> Send Rejection
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toast.success(`Offer email queued for ${candidate.fullName}`)}
+                      >
+                        <FileCheck className="mr-1.5 h-3.5 w-3.5" /> Send Offer
+                      </Button>
+                    </div>
+                  </Section>
+                )}
               </TabsContent>
 
               {/* Documents tab */}
@@ -308,7 +351,9 @@ export function CandidateDrawer() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{doc.name}</p>
-                            <p className="text-xs text-muted-foreground">{doc.type} · {doc.size}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {doc.type} · {doc.size}
+                            </p>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <Button
@@ -336,9 +381,6 @@ export function CandidateDrawer() {
                       ))}
                     </div>
                   )}
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Click the eye icon to preview PDFs and images, or the download icon to save the file.
-                  </p>
                 </Section>
               </TabsContent>
 
@@ -348,21 +390,24 @@ export function CandidateDrawer() {
                   <h3 className="font-serif text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                     Scheduled Interviews
                   </h3>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setEditingInterview(null);
-                      setInterviewOpen(true);
-                    }}
-                    className="bg-accent text-accent-foreground hover:bg-accent/90"
-                  >
-                    <Plus className="mr-1.5 h-3.5 w-3.5" /> Schedule
-                  </Button>
+                  {canWrite && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setEditingInterview(null);
+                        setInterviewOpen(true);
+                      }}
+                      className="bg-accent text-accent-foreground hover:bg-accent/90"
+                    >
+                      <Plus className="mr-1.5 h-3.5 w-3.5" /> Schedule
+                    </Button>
+                  )}
                 </div>
 
                 <InterviewList
                   interviews={interviews}
                   onEdit={(i) => {
+                    if (!canWrite) return;
                     setEditingInterview(i);
                     setInterviewOpen(true);
                   }}
@@ -391,18 +436,32 @@ export function CandidateDrawer() {
                   </div>
                 </Section>
 
-                <Section title="Add Reviewer Note">
-                  <Label className="mb-1.5 block text-sm font-medium">Note</Label>
-                  <Textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Add a note about this candidate..."
-                    className="min-h-[80px]"
-                  />
-                  <Button size="sm" className="mt-2" onClick={handleAddNote} disabled={!note.trim()}>
-                    <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Add Note
-                  </Button>
-                </Section>
+                {canWrite ? (
+                  <Section title="Add Reviewer Note">
+                    <Label className="mb-1.5 block text-sm font-medium">Note</Label>
+                    <Textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="Add a note about this candidate..."
+                      className="min-h-[80px]"
+                    />
+                    <Button
+                      size="sm"
+                      className="mt-2"
+                      onClick={handleAddNote}
+                      disabled={!note.trim()}
+                    >
+                      <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Add Note
+                    </Button>
+                  </Section>
+                ) : (
+                  <Section title="Add Reviewer Note">
+                    <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-secondary/30 p-3 text-sm text-muted-foreground">
+                      <Lock className="h-4 w-4" />
+                      Read-only access.
+                    </div>
+                  </Section>
+                )}
               </TabsContent>
             </Tabs>
           </div>
@@ -419,22 +478,24 @@ export function CandidateDrawer() {
         />
       )}
 
-      {/* Interview Scheduler Modal */}
-      <InterviewScheduler
-        open={interviewOpen}
-        onOpenChange={(o) => {
-          setInterviewOpen(o);
-          if (!o) setEditingInterview(null);
-        }}
-        candidateId={candidate.id}
-        candidateName={candidate.fullName}
-        editing={editingInterview}
-        onSaved={async () => {
-          setInterviewOpen(false);
-          setEditingInterview(null);
-          await refreshInterviews();
-        }}
-      />
+      {/* Interview Scheduler Modal — only for writers */}
+      {canWrite && (
+        <InterviewScheduler
+          open={interviewOpen}
+          onOpenChange={(o) => {
+            setInterviewOpen(o);
+            if (!o) setEditingInterview(null);
+          }}
+          candidateId={candidate.id}
+          candidateName={candidate.fullName}
+          editing={editingInterview}
+          onSaved={async () => {
+            setInterviewOpen(false);
+            setEditingInterview(null);
+            await refreshInterviews();
+          }}
+        />
+      )}
     </>
   );
 }
@@ -564,11 +625,7 @@ function DocumentPreviewModal({
           {!loading && !error && blobUrl && (
             <>
               {isPDF && (
-                <iframe
-                  src={blobUrl}
-                  className="w-full h-full"
-                  title={docName}
-                />
+                <iframe src={blobUrl} className="w-full h-full" title={docName} />
               )}
 
               {isImage && (
@@ -621,7 +678,17 @@ function InfoRow({ icon: Icon, label, value }: { icon: typeof Mail; label: strin
   );
 }
 
-function TimelineItem({ date, title, desc, active }: { date: string; title: string; desc: string; active?: boolean }) {
+function TimelineItem({
+  date,
+  title,
+  desc,
+  active,
+}: {
+  date: string;
+  title: string;
+  desc: string;
+  active?: boolean;
+}) {
   return (
     <div className="flex gap-3">
       <div className="flex flex-col items-center">
@@ -641,17 +708,17 @@ function statusColor(status: ApplicationStatus): string {
   const stage = pipelineStages.find((s) => s.key === status);
   if (!stage) return 'bg-muted text-muted-foreground';
   const map: Record<string, string> = {
-  'bg-slate-500': 'bg-slate-500 text-white',
-  'bg-blue-500': 'bg-blue-500 text-white',
-  'bg-indigo-500': 'bg-indigo-500 text-white',   // 🆕
-  'bg-cyan-500': 'bg-cyan-500 text-white',
-  'bg-violet-500': 'bg-violet-500 text-white',
-  'bg-amber-500': 'bg-amber-500 text-white',
-  'bg-lime-500': 'bg-lime-500 text-white',       // 🆕
-  'bg-emerald-500': 'bg-emerald-500 text-white',
-  'bg-green-600': 'bg-green-600 text-white',     // 🆕
-  'bg-teal-500': 'bg-teal-500 text-white',
-  'bg-rose-500': 'bg-rose-500 text-white',
-};
+    'bg-slate-500': 'bg-slate-500 text-white',
+    'bg-blue-500': 'bg-blue-500 text-white',
+    'bg-indigo-500': 'bg-indigo-500 text-white',
+    'bg-cyan-500': 'bg-cyan-500 text-white',
+    'bg-violet-500': 'bg-violet-500 text-white',
+    'bg-amber-500': 'bg-amber-500 text-white',
+    'bg-lime-500': 'bg-lime-500 text-white',
+    'bg-emerald-500': 'bg-emerald-500 text-white',
+    'bg-green-600': 'bg-green-600 text-white',
+    'bg-teal-500': 'bg-teal-500 text-white',
+    'bg-rose-500': 'bg-rose-500 text-white',
+  };
   return map[stage.color] || 'bg-muted text-muted-foreground';
 }

@@ -63,10 +63,7 @@ exports.getMe = async (req, res) => {
     const user = await User.findByPk(req.user.id, {
       include: [{ model: Company, as: 'company' }],
     });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
     res.json({
       id: user.id,
@@ -139,15 +136,21 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
-    const validRoles = ['admin', 'holding_hr', 'company_hr', 'management'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
-    }
+    // In register function, replace the validRoles array:
+const validRoles = ['system_admin', 'holding_hr', 'company_hr', 'management'];
 
-    // company_hr must have a company
-    if (role === 'company_hr' && !companyId) {
-      return res.status(400).json({ error: 'Company HR must be assigned to a company' });
-    }
+// Validation: company_hr must have a company
+if (role === 'company_hr' && !companyId) {
+  return res.status(400).json({
+    error: 'Company HR must be assigned to a company',
+  });
+}
+
+// Only system_admin can create users
+// (Already handled by route middleware, but let's be explicit)
+if (req.user && req.user.role !== 'system_admin') {
+  return res.status(403).json({ error: 'Only system admins can create users' });
+}
 
     const existing = await User.findOne({
       where: { email: email.toLowerCase() },

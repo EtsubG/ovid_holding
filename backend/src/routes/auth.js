@@ -4,15 +4,15 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const { authenticate, adminOnly } = require('../middleware/auth');
 
-// Public routes
+// Public
 router.post('/login', authController.login);
 
-// Authenticated routes
+// Authenticated
 router.get('/me', authenticate, authController.getMe);
 router.post('/logout', authenticate, authController.logout);
 router.post('/change-password', authenticate, authController.changePassword);
 
-// Admin only routes
+// Admin only
 router.post('/register', authenticate, adminOnly, authController.register);
 router.get('/users', authenticate, adminOnly, authController.getAllUsers);
 router.patch('/users/:id', authenticate, adminOnly, authController.updateUser);

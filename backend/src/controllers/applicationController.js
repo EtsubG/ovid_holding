@@ -91,8 +91,10 @@ exports.submitApplication = async (req, res) => {
 exports.getAllCandidates = async (req, res) => {
   try {
     const { company, department, location, status, search } = req.query;
-    const where = {};
+    const { Op } = require('sequelize');
 
+    // Base filters
+    const where = {};
     if (company && company !== 'all') where.preferredCompany = company;
     if (department && department !== 'all') where.preferredDepartment = department;
     if (location && location !== 'all') where.city = location;
@@ -104,6 +106,11 @@ exports.getAllCandidates = async (req, res) => {
         { fieldOfStudy: { [Op.iLike]: `%${search}%` } },
         { reference: { [Op.iLike]: `%${search}%` } },
       ];
+    }
+
+    // 🆕 Apply company scope — company_hr only sees own company
+    if (req.companyScope) {
+      where.preferredCompany = req.companyScope;
     }
 
     const candidates = await Candidate.findAll({
@@ -146,10 +153,16 @@ exports.updateCandidateStatus = async (req, res) => {
     const candidate = await Candidate.findByPk(req.params.id);
     if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
 
+    // 🆕 Company HR can only update candidates from their company
+    const { canAccessCompany } = require('../middleware/auth');
+    if (!canAccessCompany(req, candidate.preferredCompany)) {
+      return res.status(403).json({ error: 'You do not have access to this candidate' });
+    }
+
     await candidate.update({ status: value.status });
 
     const note = {
-      author: 'HR Team',
+      author: req.user?.fullName || 'HR Team',
       date: new Date().toISOString().split('T')[0],
       text: `Status updated to "${value.status}"`,
     };
@@ -171,8 +184,14 @@ exports.addCandidateNote = async (req, res) => {
     const candidate = await Candidate.findByPk(req.params.id);
     if (!candidate) return res.status(404).json({ error: 'Candidate not found' });
 
+    // 🆕 Company access check
+    const { canAccessCompany } = require('../middleware/auth');
+    if (!canAccessCompany(req, candidate.preferredCompany)) {
+      return res.status(403).json({ error: 'You do not have access to this candidate' });
+    }
+
     const note = {
-      author: 'You',
+      author: req.user?.fullName || 'You',
       date: new Date().toISOString().split('T')[0],
       text: value.text,
     };
@@ -188,18 +207,24 @@ exports.addCandidateNote = async (req, res) => {
 
 exports.getDashboardStats = async (req, res) => {
   try {
-    const candidates = await Candidate.findAll();
+    const where = {};
+    // 🆕 Company HR sees only own company's stats
+    if (req.companyScope) {
+      where.preferredCompany = req.companyScope;
+    }
+
+    const candidates = await Candidate.findAll({ where });
     const byStatus = (s) => candidates.filter((c) => c.status === s).length;
 
     const stats = {
       total: candidates.length,
       submitted: byStatus('Submitted'),
-      underReview: byStatus('Under Review') + byStatus('Longlisted'),
-      longlisted: byStatus('Longlisted'),                // 🆕
+      underReview: byStatus('Under Review'),
+      longlisted: byStatus('Longlisted'),
       shortlisted: byStatus('Shortlisted'),
       interviews: byStatus('Interview Scheduled'),
       referenceCheck: byStatus('Reference Check'),
-      selected: byStatus('Selected'),                    // 🆕
+      selected: byStatus('Selected'),
       offers: byStatus('Offer Issued'),
       hired: byStatus('Hired'),
       rejected: byStatus('Rejected'),

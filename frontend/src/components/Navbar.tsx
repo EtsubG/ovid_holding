@@ -1,6 +1,6 @@
 // frontend/src/components/Navbar.tsx
 import { useState } from 'react';
-import { Menu, Briefcase, LogOut, User as UserIcon, Shield, ChevronDown } from 'lucide-react';
+import { Menu, Briefcase, LogOut, User as UserIcon, Shield, ChevronDown, Calendar, Building2 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
@@ -32,18 +32,29 @@ const navLinks = [
   { label: 'Contact', page: 'contact' },
 ];
 
-const hrLinks = [
-  { label: 'Dashboard', page: 'hr-dashboard' },
-  { label: 'Vacancies', page: 'hr-vacancies' },
-  { label: 'Approvals', page: 'hr-approvals' },   // 🆕
-  { label: 'Pipeline', page: 'hr-pipeline' },
-  { label: 'Talent Search', page: 'hr-talent' },
-];
-
 export function Navbar() {
   const { page, navigate, hrMode, setHrMode } = useApp();
-  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const {
+    user,
+    isAuthenticated,
+    isManagement,
+    isCompanyHR,
+    canWrite,
+    canApproveVacancies,
+    canManageUsers,
+    logout,
+  } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Build HR links dynamically based on role
+  const hrLinks = [
+  { label: 'Dashboard', page: 'hr-dashboard', show: true },
+  { label: 'Companies', page: 'hr-companies', show: canManageUsers },   // 🆕 admin only
+  { label: 'Vacancies', page: 'hr-vacancies', show: true },
+  { label: 'Approvals', page: 'hr-approvals', show: canApproveVacancies },
+  { label: 'Pipeline', page: 'hr-pipeline', show: true },
+  { label: 'Talent Search', page: 'hr-talent', show: true },
+].filter((link) => link.show);
 
   const handleNav = (p: string) => {
     navigate(p);
@@ -71,7 +82,6 @@ export function Navbar() {
     handleNav('home');
   };
 
-  // Only show HR links if user is authenticated AND hrMode
   const links = hrMode && isAuthenticated ? hrLinks : navLinks;
 
   return (
@@ -86,7 +96,9 @@ export function Navbar() {
             <span className="font-serif text-lg font-semibold">O</span>
           </div>
           <div className="flex flex-col items-start leading-none">
-            <span className="font-serif text-base font-semibold tracking-tight">Ovid Holding</span>
+            <span className="font-serif text-base font-semibold tracking-tight">
+              Ovid Holding
+            </span>
             <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
               {hrMode && isAuthenticated ? 'HR Workspace' : 'Careers Hub'}
             </span>
@@ -192,7 +204,29 @@ export function Navbar() {
                   <Briefcase className="mr-2 h-4 w-4" />
                   HR Dashboard
                 </DropdownMenuItem>
-                {isAdmin && (
+                {canApproveVacancies && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setHrMode(true);
+                      navigate('hr-approvals');
+                    }}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Approvals
+                  </DropdownMenuItem>
+                )}
+                {canManageUsers && (
+  <DropdownMenuItem
+    onClick={() => {
+      setHrMode(true);
+      navigate('hr-companies');
+    }}
+  >
+    <Building2 className="mr-2 h-4 w-4" />
+    Manage Companies
+  </DropdownMenuItem>
+)}
+                {canManageUsers && (
                   <DropdownMenuItem
                     onClick={() => {
                       setHrMode(true);

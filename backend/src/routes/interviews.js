@@ -2,19 +2,26 @@
 const express = require('express');
 const router = express.Router();
 const interviewController = require('../controllers/interviewController');
-const { authenticate, hrOnly } = require('../middleware/auth');
+const {
+  authenticate,
+  hrOnly,
+  viewerOrHR,
+  applyCompanyScope,
+} = require('../middleware/auth');
 
-// All interview routes require HR auth
+// All routes require authentication
 router.use(authenticate);
-router.use(hrOnly);
+router.use(viewerOrHR);
+router.use(applyCompanyScope);
 
 router.get('/', interviewController.getAllInterviews);
 router.get('/stats', interviewController.getInterviewStats);
 router.get('/candidate/:candidateId', interviewController.getCandidateInterviews);
 router.get('/:id', interviewController.getInterviewById);
 
-router.post('/', interviewController.createInterview);
-router.put('/:id', interviewController.updateInterview);
-router.delete('/:id', interviewController.deleteInterview);
+// Writes — HR only
+router.post('/', hrOnly, interviewController.createInterview);
+router.put('/:id', hrOnly, interviewController.updateInterview);
+router.delete('/:id', hrOnly, interviewController.deleteInterview);
 
 module.exports = router;
