@@ -77,9 +77,37 @@ const talentPoolSchema = Joi.object({
   coverNote: Joi.string().allow('', null),
 }).unknown(true);
 
+// Add to backend/src/validators/index.js
+
+const vacancySchema = Joi.object({
+  id: Joi.string().max(50).optional(),   // Optional — auto-generated if not provided
+  title: Joi.string().min(3).max(200).required(),
+  companyId: Joi.string().required(),
+  department: Joi.string().required(),
+  location: Joi.string().required(),
+  type: Joi.string().valid('Full-time', 'Part-time', 'Contract', 'Internship').required(),
+  experienceLevel: Joi.string()
+    .valid('Entry Level', 'Junior', 'Mid Level', 'Senior', 'Lead', 'Executive')
+    .required(),
+  experienceYears: Joi.string().required(),
+  salaryRange: Joi.string().required(),
+  postedDate: Joi.date().optional(),
+  closingDate: Joi.date().required(),
+  summary: Joi.string().min(20).max(500).required(),
+  description: Joi.string().min(20).required(),
+  responsibilities: Joi.array().items(Joi.string()).default([]),
+  requirements: Joi.array().items(Joi.string()).default([]),
+  preferred: Joi.array().items(Joi.string()).default([]),
+  documents: Joi.array().items(Joi.string()).default([]),
+  featured: Joi.boolean().default(false),
+  isActive: Joi.boolean().default(true),
+}).unknown(true);
+
+// Export it
 module.exports = {
   applicationSchema,
   statusUpdateSchema,
   noteSchema,
   talentPoolSchema,
+  vacancySchema,   
 };

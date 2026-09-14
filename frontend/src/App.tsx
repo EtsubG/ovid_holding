@@ -23,6 +23,9 @@ const Login = lazy(() => import('@/pages/Login').then((m) => ({ default: m.Login
 const HRDashboard = lazy(() => import('@/pages/hr/HRDashboard').then((m) => ({ default: m.HRDashboard })));
 const HRPipeline = lazy(() => import('@/pages/hr/HRPipeline').then((m) => ({ default: m.HRPipeline })));
 const HRTalent = lazy(() => import('@/pages/hr/HRTalent').then((m) => ({ default: m.HRTalent })));
+const HRVacancies = lazy(() => import('@/pages/hr/HRVacancies').then((m) => ({ default: m.HRVacancies })));
+
+
 
 function Router() {
   const { page, hrMode } = useApp();
@@ -62,6 +65,13 @@ function Router() {
             <HRTalent />
           </ProtectedRoute>
         );
+
+      case 'hr-vacancies':
+  return (
+    <ProtectedRoute allow={['admin', 'holding_hr', 'company_hr']}>
+      <HRVacancies />
+    </ProtectedRoute>
+  );  
 
       default:
         return <Home />;

@@ -287,6 +287,61 @@ export function getDownloadUrl(candidateId: string, filename: string): string {
   return `${API_BASE}/applications/${candidateId}/documents/${filename}/download`;
 }
 
+// Add to frontend/src/lib/api.ts
+
+export interface CreateVacancyInput {
+  id?: string;
+  title: string;
+  companyId: string;
+  department: string;
+  location: string;
+  type: string;
+  experienceLevel: string;
+  experienceYears: string;
+  salaryRange: string;
+  postedDate?: string;
+  closingDate: string;
+  summary: string;
+  description: string;
+  responsibilities: string[];
+  requirements: string[];
+  preferred: string[];
+  documents: string[];
+  featured?: boolean;
+  isActive?: boolean;
+}
+
+export async function createVacancy(data: CreateVacancyInput) {
+  return fetchAPI('/vacancies', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateVacancy(id: string, data: Partial<CreateVacancyInput>) {
+  return fetchAPI(`/vacancies/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteVacancy(id: string) {
+  return fetchAPI(`/vacancies/${id}`, { method: 'DELETE' });
+}
+
+export async function toggleVacancyActive(id: string) {
+  return fetchAPI(`/vacancies/${id}/toggle-active`, { method: 'PATCH' });
+}
+
+export async function toggleVacancyFeatured(id: string) {
+  return fetchAPI(`/vacancies/${id}/toggle-featured`, { method: 'PATCH' });
+}
+
+// Also get ALL vacancies (including drafts) for HR
+export async function getAllVacanciesAdmin() {
+  return fetchAPI('/vacancies?includeInactive=true');
+}
+
 // ── Grouped API object (for components using `api.getX()`) ─
 export const api = {
   getCompanies,
@@ -315,4 +370,12 @@ export const api = {
   updateUser,
   deleteUser,
   resetUserPassword,
+  // Vacancy CRUD (HR)
+  createVacancy,
+  updateVacancy,
+  deleteVacancy,
+  toggleVacancyActive,
+  toggleVacancyFeatured,
+  getAllVacanciesAdmin,
+
 };

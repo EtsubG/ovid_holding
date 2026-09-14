@@ -1,90 +1,93 @@
-// models/Vacancy.js
+// backend/src/models/Vacancy.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const Vacancy = sequelize.define('Vacancy', {
   id: {
     type: DataTypes.STRING(50),
-    primaryKey: true
+    primaryKey: true,
   },
   title: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
   },
   companyId: {
     type: DataTypes.STRING(50),
-    allowNull: false
+    allowNull: false,
   },
   department: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
   },
   location: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
   },
   type: {
     type: DataTypes.ENUM('Full-time', 'Part-time', 'Contract', 'Internship'),
-    allowNull: false
+    allowNull: false,
   },
   experienceLevel: {
     type: DataTypes.ENUM('Entry Level', 'Junior', 'Mid Level', 'Senior', 'Lead', 'Executive'),
-    allowNull: false
+    allowNull: false,
   },
   experienceYears: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
   },
   salaryRange: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
   },
   postedDate: {
     type: DataTypes.DATE,
     allowNull: false,
-    defaultValue: DataTypes.NOW
+    defaultValue: DataTypes.NOW,
   },
   closingDate: {
     type: DataTypes.DATE,
-    allowNull: false
+    allowNull: false,
   },
   summary: {
     type: DataTypes.TEXT,
-    allowNull: false
+    allowNull: false,
   },
   description: {
     type: DataTypes.TEXT,
-    allowNull: false
+    allowNull: false,
   },
   responsibilities: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: [],
   },
   requirements: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: [],
   },
   preferred: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: [],
   },
   documents: {
     type: DataTypes.JSON,
     allowNull: false,
-    defaultValue: []
+    defaultValue: [],
   },
   featured: {
     type: DataTypes.BOOLEAN,
-    defaultValue: false
-  }
+    defaultValue: false,
+  },
+  // 🆕 NEW: published/draft state
+  isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
 }, {
   tableName: 'vacancies',
-  timestamps: true
+  timestamps: true,
 });
-
-// NO ASSOCIATIONS HERE - They're defined in index.js
 
 module.exports = Vacancy;
