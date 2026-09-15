@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 export function Login() {
-  const { navigate, setHrMode } = useApp();
+  const { navigate, setHrMode, refreshCandidates } = useApp();
   const { login, isAuthenticated, loading: authLoading } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -33,11 +33,13 @@ export function Login() {
     setSubmitting(true);
 
     try {
-      await login(email.trim(), password);
-      setHrMode(true);
-      toast.success('Welcome back!');
-      navigate('hr-dashboard');
-    } catch (err) {
+  await login(email.trim(), password);
+  setHrMode(true);
+  // 🆕 Force refresh after login
+  await refreshCandidates();
+  toast.success('Welcome back!');
+  navigate('hr-dashboard');
+} catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       setError(message);
       toast.error(message);

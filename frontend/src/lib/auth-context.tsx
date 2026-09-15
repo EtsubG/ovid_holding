@@ -68,31 +68,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+  // frontend/src/lib/auth-context.tsx
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Login failed');
-    }
+const login = useCallback(async (email: string, password: string) => {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
 
-    const data = await res.json();
-    localStorage.setItem(TOKEN_KEY, data.token);
-    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-    setToken(data.token);
-    setUser(data.user);
-  }, []);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Login failed');
+  }
+
+  const data = await res.json();
+
+  // Store token + user
+  localStorage.setItem(TOKEN_KEY, data.token);
+  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+  setToken(data.token);
+  setUser(data.user);
+
+  // 🆕 Dispatch a storage event to trigger AppContext refresh
+  // (this also works across tabs!)
+  window.dispatchEvent(
+    new StorageEvent('storage', {
+      key: TOKEN_KEY,
+      newValue: data.token,
+      storageArea: localStorage,
+    })
+  );
+}, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    setToken(null);
-    setUser(null);
-  }, []);
+  const oldToken = localStorage.getItem(TOKEN_KEY);
+
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  setToken(null);
+  setUser(null);
+
+  // 🆕 Trigger refresh (candidates will be cleared)
+  window.dispatchEvent(
+    new StorageEvent('storage', {
+      key: TOKEN_KEY,
+      oldValue: oldToken ?? undefined,
+      newValue: null,
+      storageArea: localStorage,
+    })
+  );
+}, []);
 
   const refreshUser = useCallback(async () => {
     if (!token) return;
