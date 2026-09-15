@@ -1,6 +1,9 @@
 // frontend/src/components/Navbar.tsx
 import { useState } from 'react';
-import { Menu, Briefcase, LogOut, User as UserIcon, Shield, ChevronDown, Calendar, Building2 } from 'lucide-react';
+import {
+  Menu, Briefcase, LogOut, User as UserIcon, Shield, ChevronDown,
+  Calendar, Building2, Users as UsersIcon,
+} from 'lucide-react';
 import { useApp } from '@/lib/app-context';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
@@ -49,11 +52,12 @@ export function Navbar() {
   // Build HR links dynamically based on role
   const hrLinks = [
   { label: 'Dashboard', page: 'hr-dashboard', show: true },
-  { label: 'Companies', page: 'hr-companies', show: canManageUsers },   // 🆕 admin only
+  { label: 'Companies', page: 'hr-companies', show: canManageUsers },
   { label: 'Vacancies', page: 'hr-vacancies', show: true },
   { label: 'Approvals', page: 'hr-approvals', show: canApproveVacancies },
   { label: 'Pipeline', page: 'hr-pipeline', show: true },
   { label: 'Talent Search', page: 'hr-talent', show: true },
+  { label: 'Users', page: 'hr-users', show: canManageUsers },   // 🆕
 ].filter((link) => link.show);
 
   const handleNav = (p: string) => {
@@ -224,6 +228,17 @@ export function Navbar() {
   >
     <Building2 className="mr-2 h-4 w-4" />
     Manage Companies
+  </DropdownMenuItem>
+)}
+{canManageUsers && (
+  <DropdownMenuItem
+    onClick={() => {
+      setHrMode(true);
+      navigate('hr-users');
+    }}
+  >
+    <UsersIcon className="mr-2 h-4 w-4" />
+    Manage Users
   </DropdownMenuItem>
 )}
                 {canManageUsers && (

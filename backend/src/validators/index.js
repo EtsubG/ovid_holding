@@ -129,13 +129,46 @@ const companySchema = Joi.object({
   icon: Joi.string().max(50).required(),
 }).unknown(true);
 
-// Update the exports:
+// Add to backend/src/validators/index.js
+
+// ─────────────────────────────────────────────
+// User schemas
+// ─────────────────────────────────────────────
+const userCreateSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).max(100).required()
+    .messages({ 'string.min': 'Password must be at least 8 characters' }),
+  fullName: Joi.string().min(2).max(100).required(),
+  role: Joi.string()
+    .valid('system_admin', 'holding_hr', 'company_hr', 'management')
+    .required(),
+  companyId: Joi.string().allow(null, '').optional(),
+  isActive: Joi.boolean().default(true),
+}).unknown(true);
+
+const userUpdateSchema = Joi.object({
+  fullName: Joi.string().min(2).max(100).optional(),
+  role: Joi.string()
+    .valid('system_admin', 'holding_hr', 'company_hr', 'management')
+    .optional(),
+  companyId: Joi.string().allow(null, '').optional(),
+  isActive: Joi.boolean().optional(),
+}).unknown(true);
+
+const passwordResetSchema = Joi.object({
+  newPassword: Joi.string().min(8).max(100).required()
+    .messages({ 'string.min': 'Password must be at least 8 characters' }),
+});
+
+// Update exports:
 module.exports = {
   applicationSchema,
   statusUpdateSchema,
   noteSchema,
   talentPoolSchema,
   vacancySchema,
-  companySchema,   // 🆕
+  companySchema,
+  userCreateSchema,      // 🆕
+  userUpdateSchema,      // 🆕
+  passwordResetSchema,   // 🆕
 };
-

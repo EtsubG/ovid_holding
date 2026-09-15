@@ -25,7 +25,9 @@ const HRPipeline = lazy(() => import('@/pages/hr/HRPipeline').then((m) => ({ def
 const HRTalent = lazy(() => import('@/pages/hr/HRTalent').then((m) => ({ default: m.HRTalent })));
 const HRVacancies = lazy(() => import('@/pages/hr/HRVacancies').then((m) => ({ default: m.HRVacancies })));
 const HRVacancyApprovals = lazy(() => import('@/pages/hr/HRVacancyApprovals').then((m) => ({ default: m.HRVacancyApprovals })));
+const HRUsers = lazy(() => import('@/pages/hr/HRUsers').then((m) => ({ default: m.HRUsers })));
 const HRCompanies = lazy(() => import('@/pages/hr/HRCompanies').then((m) => ({ default: m.HRCompanies })));
+
 
 // ─────────────────────────────────────────────
 // Renders ONLY the page content (no Navbar/Footer)
@@ -77,6 +79,12 @@ function PageContent() {
       <HRCompanies />
     </ProtectedRoute>
   );  
+  case 'hr-users':
+  return (
+    <ProtectedRoute allow={['system_admin']}>
+      <HRUsers />
+    </ProtectedRoute>
+  );
     case 'hr-approvals':
       return (
         <ProtectedRoute allow={['system_admin', 'holding_hr']}>
