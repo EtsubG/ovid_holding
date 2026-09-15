@@ -7,6 +7,8 @@ const { v4: uuidv4 } = require('uuid');
 // ─────────────────────────────────────────────
 // PUBLIC: Get all vacancies (filters, search, sort)
 // ─────────────────────────────────────────────
+// backend/src/controllers/vacancyController.js
+
 exports.getAllVacancies = async (req, res) => {
   try {
     const {
@@ -22,19 +24,31 @@ exports.getAllVacancies = async (req, res) => {
 
     const where = {};
 
+    // ─────────────────────────────────────────────
+    // 🔒 COMPANY SCOPE
+    // Applied ONLY for company_hr users (set by applyCompanyScope middleware)
+    // Public visitors get req.companyScope = undefined → no filter
+    // ─────────────────────────────────────────────
+    if (req.companyScope) {
+      where.companyId = req.companyScope;
+    } else {
+      // No scope → only apply URL-provided company filter
+      if (company && company !== 'all') where.companyId = company;
+    }
+
     // Public users only see active vacancies
-    // HR can pass `includeInactive=true` to see drafts
+    // HR can pass includeInactive=true to see drafts
     if (includeInactive !== 'true') {
       where.isActive = true;
     }
 
-    if (company && company !== 'all') where.companyId = company;
     if (location && location !== 'all') where.location = location;
     if (department && department !== 'all') where.department = department;
     if (type && type !== 'all') where.type = type;
     if (featured === 'true') where.featured = true;
 
     if (search) {
+      const { Op } = require('sequelize');
       where[Op.or] = [
         { title: { [Op.iLike]: `%${search}%` } },
         { summary: { [Op.iLike]: `%${search}%` } },
@@ -43,15 +57,25 @@ exports.getAllVacancies = async (req, res) => {
     }
 
     let order = [['featured', 'DESC'], ['postedDate', 'DESC']];
-
     switch (sortBy) {
-      case 'newest': order = [['postedDate', 'DESC']]; break;
-      case 'oldest': order = [['postedDate', 'ASC']]; break;
-      case 'title-asc': order = [['title', 'ASC']]; break;
-      case 'title-desc': order = [['title', 'DESC']]; break;
-      case 'closing-asc': order = [['closingDate', 'ASC']]; break;
-      case 'closing-desc': order = [['closingDate', 'DESC']]; break;
-      default: break;
+      case 'newest':
+        order = [['postedDate', 'DESC']];
+        break;
+      case 'oldest':
+        order = [['postedDate', 'ASC']];
+        break;
+      case 'title-asc':
+        order = [['title', 'ASC']];
+        break;
+      case 'title-desc':
+        order = [['title', 'DESC']];
+        break;
+      case 'closing-asc':
+        order = [['closingDate', 'ASC']];
+        break;
+      case 'closing-desc':
+        order = [['closingDate', 'DESC']];
+        break;
     }
 
     const vacancies = await Vacancy.findAll({

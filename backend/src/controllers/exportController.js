@@ -4,28 +4,36 @@ const { Op } = require('sequelize');
 const { generateCandidatesExcel } = require('../services/excelService');
 const { generateCandidatesPDF } = require('../services/pdfService');
 
-// Helper — build query from filters
-function buildWhereFromFilters(query) {
+// ─────────────────────────────────────────────
+// Helper — build WHERE clause from filters + user scope
+// ─────────────────────────────────────────────
+function buildScopedWhere(req) {
+  const { company, department, location, status, search } = req.query;
   const where = {};
 
-  if (query.company && query.company !== 'all') {
-    where.preferredCompany = query.company;
+  // 🔒 COMPANY SCOPE — company_hr only sees their own company
+  if (req.companyScope) {
+    where.preferredCompany = req.companyScope;
+  } else if (company && company !== 'all') {
+    // Only apply URL-provided company filter for global roles
+    where.preferredCompany = company;
   }
-  if (query.department && query.department !== 'all') {
-    where.preferredDepartment = query.department;
+
+  if (department && department !== 'all') {
+    where.preferredDepartment = department;
   }
-  if (query.location && query.location !== 'all') {
-    where.city = query.location;
+  if (location && location !== 'all') {
+    where.city = location;
   }
-  if (query.status && query.status !== 'all') {
-    where.status = query.status;
+  if (status && status !== 'all') {
+    where.status = status;
   }
-  if (query.search) {
+  if (search) {
     where[Op.or] = [
-      { fullName: { [Op.iLike]: `%${query.search}%` } },
-      { email: { [Op.iLike]: `%${query.search}%` } },
-      { fieldOfStudy: { [Op.iLike]: `%${query.search}%` } },
-      { reference: { [Op.iLike]: `%${query.search}%` } },
+      { fullName: { [Op.iLike]: `%${search}%` } },
+      { email: { [Op.iLike]: `%${search}%` } },
+      { fieldOfStudy: { [Op.iLike]: `%${search}%` } },
+      { reference: { [Op.iLike]: `%${search}%` } },
     ];
   }
 
@@ -37,7 +45,12 @@ function buildWhereFromFilters(query) {
 // ─────────────────────────────────────────────
 exports.exportCandidatesExcel = async (req, res) => {
   try {
-    const where = buildWhereFromFilters(req.query);
+    const where = buildScopedWhere(req);
+
+    // 🔒 Extra safety: if company_hr, force their company
+    if (req.companyScope) {
+      where.preferredCompany = req.companyScope;
+    }
 
     const candidates = await Candidate.findAll({
       where,
@@ -48,9 +61,19 @@ exports.exportCandidatesExcel = async (req, res) => {
       order: [['submittedAt', 'DESC']],
     });
 
+    console.log(
+      `📊 Excel export by ${req.user?.email} (${req.user?.role}) — ` +
+        `${candidates.length} candidates` +
+        (req.companyScope ? ` [scoped to ${req.companyScope}]` : ' [all companies]')
+    );
+
     const buffer = await generateCandidatesExcel(
       candidates.map((c) => c.toJSON()),
-      req.query
+      {
+        ...req.query,
+        // Include scope info in the "Filters Applied" section of the summary sheet
+        ...(req.companyScope ? { scopedTo: req.companyScope } : {}),
+      }
     );
 
     const filename = `candidates-${new Date().toISOString().split('T')[0]}.xlsx`;
@@ -73,7 +96,11 @@ exports.exportCandidatesExcel = async (req, res) => {
 // ─────────────────────────────────────────────
 exports.exportCandidatesPDF = async (req, res) => {
   try {
-    const where = buildWhereFromFilters(req.query);
+    const where = buildScopedWhere(req);
+
+    if (req.companyScope) {
+      where.preferredCompany = req.companyScope;
+    }
 
     const candidates = await Candidate.findAll({
       where,
@@ -84,9 +111,18 @@ exports.exportCandidatesPDF = async (req, res) => {
       order: [['submittedAt', 'DESC']],
     });
 
+    console.log(
+      `📊 PDF export by ${req.user?.email} (${req.user?.role}) — ` +
+        `${candidates.length} candidates` +
+        (req.companyScope ? ` [scoped to ${req.companyScope}]` : ' [all companies]')
+    );
+
     const buffer = await generateCandidatesPDF(
       candidates.map((c) => c.toJSON()),
-      req.query
+      {
+        ...req.query,
+        ...(req.companyScope ? { scopedTo: req.companyScope } : {}),
+      }
     );
 
     const filename = `candidates-${new Date().toISOString().split('T')[0]}.pdf`;

@@ -5,18 +5,21 @@ const vacancyController = require('../controllers/vacancyController');
 const {
   authenticate,
   hrOnly,
-  adminOnly,
   canManageAllCompanies,
   canWrite,
   applyCompanyScope,
+  optionalAuth,
 } = require('../middleware/auth');
 
 // ─────────────────────────────────────────────
-// PUBLIC routes (anyone can read active vacancies)
+// PUBLIC routes — but with optional auth
 // ─────────────────────────────────────────────
-router.get('/', vacancyController.getAllVacancies);
+router.get(
+  '/',
+  optionalAuth,   // 🔒 sets req.companyScope if logged in
+  vacancyController.getAllVacancies
+);
 
-// 🆕 Must be BEFORE /:id — get pending approvals
 router.get(
   '/approvals/pending',
   authenticate,
@@ -24,79 +27,23 @@ router.get(
   vacancyController.getPendingApprovals
 );
 
-// Public single vacancy
-router.get('/:id', vacancyController.getVacancyById);
+router.get(
+  '/:id',
+  optionalAuth,
+  vacancyController.getVacancyById
+);
 
 // ─────────────────────────────────────────────
 // PROTECTED routes (HR only)
 // ─────────────────────────────────────────────
-router.post(
-  '/',
-  authenticate,
-  hrOnly,
-  canWrite,
-  applyCompanyScope,
-  vacancyController.createVacancy
-);
+router.post('/', authenticate, hrOnly, canWrite, applyCompanyScope, vacancyController.createVacancy);
+router.put('/:id', authenticate, hrOnly, canWrite, applyCompanyScope, vacancyController.updateVacancy);
+router.delete('/:id', authenticate, hrOnly, canWrite, applyCompanyScope, vacancyController.deleteVacancy);
+router.patch('/:id/toggle-active', authenticate, hrOnly, canWrite, applyCompanyScope, vacancyController.toggleVacancyActive);
+router.patch('/:id/toggle-featured', authenticate, hrOnly, canWrite, applyCompanyScope, vacancyController.toggleVacancyFeatured);
+router.post('/:id/submit-approval', authenticate, hrOnly, canWrite, vacancyController.submitForApproval);
 
-router.put(
-  '/:id',
-  authenticate,
-  hrOnly,
-  canWrite,
-  applyCompanyScope,
-  vacancyController.updateVacancy
-);
-
-router.delete(
-  '/:id',
-  authenticate,
-  hrOnly,
-  canWrite,
-  applyCompanyScope,
-  vacancyController.deleteVacancy
-);
-
-router.patch(
-  '/:id/toggle-active',
-  authenticate,
-  hrOnly,
-  canWrite,
-  applyCompanyScope,
-  vacancyController.toggleVacancyActive
-);
-
-router.patch(
-  '/:id/toggle-featured',
-  authenticate,
-  hrOnly,
-  canWrite,
-  applyCompanyScope,
-  vacancyController.toggleVacancyFeatured
-);
-
-// 🆕 Approval workflow — HR submits
-router.post(
-  '/:id/submit-approval',
-  authenticate,
-  hrOnly,
-  canWrite,
-  vacancyController.submitForApproval
-);
-
-// 🆕 Approval workflow — Manager/Admin approves or rejects
-router.post(
-  '/:id/approve',
-  authenticate,
-  canManageAllCompanies,
-  vacancyController.approveVacancy
-);
-
-router.post(
-  '/:id/reject',
-  authenticate,
-  canManageAllCompanies,
-  vacancyController.rejectVacancy
-);
+router.post('/:id/approve', authenticate, canManageAllCompanies, vacancyController.approveVacancy);
+router.post('/:id/reject', authenticate, canManageAllCompanies, vacancyController.rejectVacancy);
 
 module.exports = router;

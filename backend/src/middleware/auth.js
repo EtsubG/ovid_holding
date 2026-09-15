@@ -198,3 +198,40 @@ exports.assertCompanyAccess = (getCompanyId) => {
     next();
   };
 };
+// backend/src/middleware/auth.js
+
+// ─────────────────────────────────────────────
+// Optional authentication — sets req.user if token valid, but doesn't block
+// Use for endpoints that are PUBLIC but behave differently for HR users
+// ─────────────────────────────────────────────
+exports.optionalAuth = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    if (!token) return next();
+
+    const jwt = require('jsonwebtoken');
+    const JWT_SECRET = process.env.JWT_SECRET || 'ovid-holding-secret-key-change-me';
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { User, Company } = require('../models');
+    const user = await User.findByPk(decoded.id, {
+      include: [{ model: Company, as: 'company' }],
+    });
+
+    if (user && user.isActive) {
+      req.user = user;
+      // Set company scope for company_hr
+      if (user.role === 'company_hr' && user.companyId) {
+        req.companyScope = user.companyId;
+      } else {
+        req.companyScope = null;
+      }
+    }
+    next();
+  } catch (error) {
+    // Silently ignore — public can still access
+    next();
+  }
+};
