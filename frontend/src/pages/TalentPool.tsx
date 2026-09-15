@@ -124,28 +124,30 @@ const handleSubmit = async (e: React.FormEvent) => {
   const response = await api.submitApplication(formData);
   const candidateId = response.id;
 
-  // 2. Upload the CV file to the new candidate
+  // 2. Upload the CV file
   if (cvFile && candidateId) {
     try {
-      await api.uploadDocuments(candidateId, cvFile, []);
+      const uploadResult = await api.uploadDocuments(candidateId, cvFile, []);
+      console.log('✅ CV uploaded:', uploadResult);
     } catch (uploadErr) {
-      console.error('CV upload failed:', uploadErr);
-      const message =
-        uploadErr instanceof Error ? uploadErr.message : 'Unknown upload error';
-      toast.warning(
-        `Profile submitted, but CV upload failed: ${message}. Please contact HR.`,
-        { duration: 8000 }
-      );
+      console.error('❌ CV upload failed:', uploadErr);
+      const msg =
+        uploadErr instanceof Error ? uploadErr.message : 'Unknown error';
+      toast.warning(`Profile submitted, but CV upload failed: ${msg}`, {
+        duration: 8000,
+      });
     }
   }
 
-  // 3. Refresh candidates and show success
+  // 3. Refresh and show success
   await refreshCandidates();
   setSubmitted(true);
   toast.success('Profile submitted to talent pool!');
 } catch (error) {
   console.error('Talent pool submit error:', error);
-  toast.error(error instanceof Error ? error.message : 'Failed to submit profile. Please try again.');
+  toast.error(
+    error instanceof Error ? error.message : 'Failed to submit profile. Please try again.'
+  );
 }
 };
 

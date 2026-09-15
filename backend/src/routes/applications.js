@@ -10,14 +10,29 @@ const {
   applyCompanyScope,
 } = require('../middleware/auth');
 
-// ─────────────────────────────────────────────
-// PUBLIC — submit application
-// ─────────────────────────────────────────────
+// ═════════════════════════════════════════════
+// PUBLIC ROUTES — NO AUTH
+// ═════════════════════════════════════════════
+
+// Submit application (public)
 router.post('/', applicationController.submitApplication);
 
-// ─────────────────────────────────────────────
-// PROTECTED — HR list + stats (viewers or higher, company scoped)
-// ─────────────────────────────────────────────
+// 🆕 PUBLIC: Upload documents for a new application
+// NO authenticate, NO hrOnly — candidates are not logged in
+router.post(
+  '/:id/upload',
+  upload.fields([
+    { name: 'cv', maxCount: 1 },
+    { name: 'documents', maxCount: 10 },
+  ]),
+  applicationController.uploadDocuments
+);
+
+// ═════════════════════════════════════════════
+// PROTECTED ROUTES — HR ONLY
+// ═════════════════════════════════════════════
+
+// List all candidates
 router.get(
   '/',
   authenticate,
@@ -26,6 +41,7 @@ router.get(
   applicationController.getAllCandidates
 );
 
+// Stats
 router.get(
   '/stats',
   authenticate,
@@ -34,6 +50,7 @@ router.get(
   applicationController.getDashboardStats
 );
 
+// Single candidate
 router.get(
   '/:id',
   authenticate,
@@ -42,9 +59,7 @@ router.get(
   applicationController.getCandidateById
 );
 
-// ─────────────────────────────────────────────
-// HR write — no management
-// ─────────────────────────────────────────────
+// Update status
 router.put(
   '/:id/status',
   authenticate,
@@ -53,6 +68,7 @@ router.put(
   applicationController.updateCandidateStatus
 );
 
+// Add note
 router.post(
   '/:id/notes',
   authenticate,
@@ -61,20 +77,7 @@ router.post(
   applicationController.addCandidateNote
 );
 
-// ─────────────────────────────────────────────
-// Document routes
-// ─────────────────────────────────────────────
-router.post(
-  '/:id/upload',
-  authenticate,
-  hrOnly,
-  upload.fields([
-    { name: 'cv', maxCount: 1 },
-    { name: 'documents', maxCount: 10 },
-  ]),
-  applicationController.uploadDocuments
-);
-
+// View document (HR only)
 router.get(
   '/:id/documents/:filename',
   authenticate,
@@ -82,6 +85,7 @@ router.get(
   applicationController.getDocument
 );
 
+// Download document (HR only)
 router.get(
   '/:id/documents/:filename/download',
   authenticate,

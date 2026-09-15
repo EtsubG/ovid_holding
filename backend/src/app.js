@@ -9,8 +9,8 @@ require('dotenv').config();
 
 const { sequelize } = require('./models');
 
-// Middleware
-const { authenticate, hrOnly, applyCompanyScope } = require('./middleware/auth');
+// Middleware (only what we need here)
+const { authenticate, hrOnly, viewerOrHR, applyCompanyScope } = require('./middleware/auth');
 
 // Routes
 const authRoutes = require('./routes/auth');
@@ -18,15 +18,15 @@ const companyRoutes = require('./routes/companies');
 const vacancyRoutes = require('./routes/vacancies');
 const applicationRoutes = require('./routes/applications');
 const referenceRoutes = require('./routes/references');
-const exportRoutes = require('./routes/exports');           // 🆕 ADD THIS
+const exportRoutes = require('./routes/exports');
 const interviewRoutes = require('./routes/interviews');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// ─────────────────────────────────────────────
-// Global middleware
-// ─────────────────────────────────────────────
+// ═════════════════════════════════════════════
+// GLOBAL MIDDLEWARE
+// ═════════════════════════════════════════════
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -47,47 +47,47 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// ─────────────────────────────────────────────
-// Public routes
-// ─────────────────────────────────────────────
+// ═════════════════════════════════════════════
+// ROUTES
+// ═════════════════════════════════════════════
+
+// Public: Auth (login is public, /me + /users are protected INSIDE the file)
 app.use('/api/auth', authRoutes);
+
+// Public: Companies (GET is public, POST/PUT/DELETE protected INSIDE the file)
 app.use('/api/companies', companyRoutes);
+
+// Public: Vacancies (GET is public, POST/PUT/DELETE protected INSIDE the file)
 app.use('/api/vacancies', vacancyRoutes);
+
+// Public + Protected: Applications
+// ⚠️ DO NOT wrap with authenticate/hrOnly here!
+// Inside the file:
+//   - POST /           → public (submit application)
+//   - POST /:id/upload → public (file upload)
+//   - GET /            → protected (list, HR only)
+//   - PUT /:id/status  → protected (update, HR only)
+app.use('/api/applications', applicationRoutes);
+
+// Public: References (all GET, no auth)
 app.use('/api/references', referenceRoutes);
 
-// Public application submission (no auth required)
-app.post(
-  '/api/applications',
-  require('./controllers/applicationController').submitApplication
-);
-
-// ─────────────────────────────────────────────
-// Protected routes (HR only)
-// ─────────────────────────────────────────────
-app.use(
-  '/api/applications',
-  authenticate,
-  hrOnly,
-  applyCompanyScope,
-  applicationRoutes
-);
-
-// 🆕 Exports — protected inside the route file itself
+// Protected: Exports (HR only — enforced INSIDE the file)
 app.use('/api/exports', exportRoutes);
 
+// Protected: Interviews (HR only — enforced INSIDE the file)
 app.use('/api/interviews', interviewRoutes);
 
-
-// ─────────────────────────────────────────────
-// Health check
-// ─────────────────────────────────────────────
+// ═════════════════════════════════════════════
+// HEALTH CHECK
+// ═════════════════════════════════════════════
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// ─────────────────────────────────────────────
-// Error handler
-// ─────────────────────────────────────────────
+// ═════════════════════════════════════════════
+// ERROR HANDLER
+// ═════════════════════════════════════════════
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
 
@@ -107,14 +107,14 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// 404
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// ─────────────────────────────────────────────
-// Start server
-// ─────────────────────────────────────────────
+// ═════════════════════════════════════════════
+// START SERVER
+// ═════════════════════════════════════════════
 async function startServer() {
   try {
     await sequelize.authenticate();
