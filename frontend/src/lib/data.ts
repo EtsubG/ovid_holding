@@ -6,9 +6,11 @@ export type ExperienceLevel = 'Entry Level' | 'Junior' | 'Mid Level' | 'Senior' 
 export type ApplicationStatus =
   | 'Submitted'
   | 'Under Review'
+  | 'Longlisted'          
   | 'Shortlisted'
   | 'Interview Scheduled'
   | 'Reference Check'
+  | 'Selected'            
   | 'Offer Issued'
   | 'Hired'
   | 'Talent Pool'
@@ -49,6 +51,8 @@ export interface Vacancy {
   featured: boolean;
 }
 
+// frontend/src/lib/data.ts
+
 export interface Candidate {
   id: string;
   fullName: string;
@@ -74,12 +78,16 @@ export interface Candidate {
   vacancyId?: string;
   status: ApplicationStatus;
   submittedAt: string;
-  documents: { name: string; type: string; size: string }[];
+  documents: { 
+    name: string; 
+    type: string; 
+    size: string;
+    filename?: string;   // ← ADD THIS
+    path?: string;       // ← ADD THIS
+    fieldname?: string;  // ← ADD THIS
+  }[];
   notes: { author: string; date: string; text: string }[];
   reference: string;
-  // Nested objects returned by the API via JOIN
-  company?: { id: string; name: string; shortName: string };
-  vacancy?: { id: string; title: string; department: string };
 }
 
 // Static reference data (these could also come from API, but kept as fallback)
@@ -127,14 +135,17 @@ export const locations = [
 ];
 
 export const pipelineStages: { key: ApplicationStatus; label: string; color: string }[] = [
-  { key: 'Submitted', label: 'Submitted / Received', color: 'bg-slate-500' },
-  { key: 'Under Review', label: 'Under Review', color: 'bg-blue-500' },
-  { key: 'Shortlisted', label: 'Shortlisted', color: 'bg-cyan-500' },
-  { key: 'Interview Scheduled', label: 'Interview Scheduled', color: 'bg-violet-500' },
-  { key: 'Reference Check', label: 'Reference Check', color: 'bg-amber-500' },
-  { key: 'Offer Issued', label: 'Offer Issued / Hired', color: 'bg-emerald-500' },
-  { key: 'Talent Pool', label: 'Kept in Talent Pool', color: 'bg-teal-500' },
-  { key: 'Rejected', label: 'Rejected / Withdrawn', color: 'bg-rose-500' },
+  { key: 'Submitted',            label: 'Submitted',           color: 'bg-slate-500' },
+  { key: 'Under Review',         label: 'HR Screening',        color: 'bg-blue-500' },
+  { key: 'Longlisted',           label: 'Longlisted',          color: 'bg-indigo-500' },     // 🆕
+  { key: 'Shortlisted',          label: 'Shortlisted',         color: 'bg-cyan-500' },
+  { key: 'Interview Scheduled',  label: 'Interview',           color: 'bg-violet-500' },
+  { key: 'Reference Check',      label: 'Reference Check',     color: 'bg-amber-500' },
+  { key: 'Selected',             label: 'Selected',            color: 'bg-lime-500' },       // 🆕
+  { key: 'Offer Issued',         label: 'Offer Issued',        color: 'bg-emerald-500' },
+  { key: 'Hired',                label: 'Hired',               color: 'bg-green-600' },
+  { key: 'Talent Pool',          label: 'Talent Pool',         color: 'bg-teal-500' },
+  { key: 'Rejected',             label: 'Rejected',            color: 'bg-rose-500' },
 ];
 
 export function generateReference(): string {

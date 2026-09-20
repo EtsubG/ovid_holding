@@ -1,24 +1,24 @@
+// frontend/src/components/ApplicationForm.tsx
 import { useState, useEffect } from 'react';
 import {
   Check, ChevronRight, ChevronLeft, User, GraduationCap,
-  Briefcase, Upload, PartyPopper, Copy, Home, Loader2,
+  Briefcase, Upload, PartyPopper, Copy, Home, Search, Loader2,
 } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
-import {
-  generateReference, type Candidate, type Vacancy, type Company,
-} from '@/lib/data';
+import { api } from '@/lib/api';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dropzone } from '@/components/Dropzone';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import * as api from '@/lib/api';
 
 const steps = [
   { id: 1, label: 'Personal', icon: User },
@@ -29,22 +29,70 @@ const steps = [
 ];
 
 interface FormState {
-  fullName: string; email: string; phone: string; altPhone: string;
-  city: string; nationality: string; idType: string; idNumber: string;
-  qualification: string; fieldOfStudy: string; institution: string;
-  graduationYear: string; cgpa: string; certificates: string;
-  currentStatus: string; currentEmployer: string; currentRole: string;
-  totalExperience: string; relevantExperience: string; availability: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  altPhone: string;
+  city: string;
+  nationality: string;
+  idType: string;
+  idNumber: string;
+  qualification: string;
+  fieldOfStudy: string;
+  institution: string;
+  graduationYear: string;
+  cgpa: string;
+  certificates: string;
+  currentStatus: string;
+  currentEmployer: string;
+  currentRole: string;
+  totalExperience: string;
+  relevantExperience: string;
+  availability: string;
   expectedSalary: string;
 }
 
 const empty: FormState = {
-  fullName: '', email: '', phone: '', altPhone: '', city: '', nationality: '',
-  idType: 'National ID', idNumber: '', qualification: '', fieldOfStudy: '',
-  institution: '', graduationYear: '', cgpa: '', certificates: '',
-  currentStatus: 'Employed', currentEmployer: '', currentRole: '',
-  totalExperience: '', relevantExperience: '', availability: '', expectedSalary: '',
+  fullName: '',
+  email: '',
+  phone: '',
+  altPhone: '',
+  city: '',
+  nationality: '',
+  idType: 'National ID',
+  idNumber: '',
+  qualification: '',
+  fieldOfStudy: '',
+  institution: '',
+  graduationYear: '',
+  cgpa: '',
+  certificates: '',
+  currentStatus: 'Employed',
+  currentEmployer: '',
+  currentRole: '',
+  totalExperience: '',
+  relevantExperience: '',
+  availability: '',
+  expectedSalary: '',
 };
+
+const qualificationOptions = [
+  'High School',
+  'Diploma',
+  "Bachelor's Degree",
+  "Master's Degree",
+  'PhD',
+];
+
+const statusOptions = ['Employed', 'Unemployed', 'Self-employed', 'Student'];
+
+const availabilityOptions = [
+  'Immediate',
+  '2 weeks',
+  '1 month notice',
+  '2 months notice',
+  '3 months notice',
+];
 
 export function ApplicationForm({
   open,
@@ -55,38 +103,45 @@ export function ApplicationForm({
   onOpenChange: (v: boolean) => void;
   vacancyId: string;
 }) {
-  const { navigate, addCandidate } = useApp();
-  const [vacancy, setVacancy] = useState<Vacancy | null>(null);
-  const [company, setCompany] = useState<Company | null>(null);
-  const [loadingVacancy, setLoadingVacancy] = useState(false);
+  const { navigate, refreshCandidates } = useApp();
+
+  const [vacancy, setVacancy] = useState<any>(null);
+  const [company, setCompany] = useState<any>(null);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>(empty);
   const [reference, setReference] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Fetch vacancy from API when dialog opens
+  // Real File objects
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
+  const [academicFiles, setAcademicFiles] = useState<File[]>([]);
+  const [experienceFiles, setExperienceFiles] = useState<File[]>([]);
+  const [supportingFiles, setSupportingFiles] = useState<File[]>([]);
+
+  // Fetch vacancy + company when dialog opens
   useEffect(() => {
-    if (!open || !vacancyId) return;
-    const fetch = async () => {
-      try {
-        setLoadingVacancy(true);
-        const v = await api.getVacancy(vacancyId);
-        setVacancy(v);
-        // The API returns the nested company object on the vacancy
-        if (v.company) {
-          setCompany(v.company);
-        } else if (v.companyId) {
-          const c = await api.getCompany(v.companyId);
-          setCompany(c);
+    if (open && vacancyId) {
+      setLoading(true);
+      const fetchVacancy = async () => {
+        try {
+          const data = await api.getVacancy(vacancyId);
+          setVacancy(data);
+          if (data.companyId) {
+            const companyData = await api.getCompany(data.companyId);
+            setCompany(companyData);
+          }
+        } catch (error) {
+          console.error('Failed to fetch vacancy:', error);
+          toast.error('Failed to load vacancy details');
+        } finally {
+          setLoading(false);
         }
-      } catch {
-        toast.error('Failed to load vacancy details');
-      } finally {
-        setLoadingVacancy(false);
-      }
-    };
-    fetch();
+      };
+      fetchVacancy();
+    }
   }, [open, vacancyId]);
 
   const set = (key: keyof FormState, value: string) => {
@@ -96,6 +151,7 @@ export function ApplicationForm({
 
   const validateStep = (s: number): boolean => {
     const e: Record<string, string> = {};
+
     if (s === 1) {
       if (!form.fullName.trim()) e.fullName = 'Full name is required';
       if (!form.email.trim()) e.email = 'Email is required';
@@ -104,101 +160,122 @@ export function ApplicationForm({
       if (!form.city.trim()) e.city = 'City is required';
       if (!form.nationality.trim()) e.nationality = 'Nationality is required';
     }
+
     if (s === 2) {
       if (!form.qualification) e.qualification = 'Required';
       if (!form.fieldOfStudy.trim()) e.fieldOfStudy = 'Required';
       if (!form.institution.trim()) e.institution = 'Required';
       if (!form.graduationYear.trim()) e.graduationYear = 'Required';
     }
+
     if (s === 3) {
       if (!form.totalExperience.trim()) e.totalExperience = 'Required';
       if (!form.expectedSalary.trim()) e.expectedSalary = 'Required';
       if (!form.availability.trim()) e.availability = 'Required';
     }
+
+    if (s === 4) {
+      if (!cvFile) e.cvFile = 'CV / Resume is required';
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const next = () => { if (validateStep(step) && step < 5) setStep(step + 1); };
+  const next = () => {
+    if (validateStep(step)) {
+      if (step < 5) setStep(step + 1);
+    }
+  };
+
   const back = () => step > 1 && setStep(step - 1);
 
   const submit = async () => {
-    setIsSubmitting(true);
+    // Validate step 4 again before submit
+    if (!validateStep(4)) {
+      toast.error('Please upload your CV before submitting');
+      return;
+    }
+
+    setSubmitting(true);
+
     try {
+      // 1. Generate reference
+      const year = new Date().getFullYear();
+      const num = Math.floor(1000 + Math.random() * 9000);
+      const ref = `OVID-${year}-${num}`;
+      setReference(ref);
+
+      // 2. Build payload
       const formData = {
-        fullName: form.fullName,
-        email: form.email,
-        phone: form.phone,
-        altPhone: form.altPhone || '',
-        city: form.city,
-        nationality: form.nationality,
-        idType: form.idType,
-        idNumber: form.idNumber,
+        fullName: form.fullName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        altPhone: form.altPhone.trim() || undefined,
+        city: form.city.trim(),
+        nationality: form.nationality.trim(),
         qualification: form.qualification,
-        fieldOfStudy: form.fieldOfStudy,
-        institution: form.institution,
-        graduationYear: form.graduationYear,
-        cgpa: form.cgpa || 'N/A',
-        certificates: form.certificates || '',
+        fieldOfStudy: form.fieldOfStudy.trim(),
+        institution: form.institution.trim(),
+        graduationYear: form.graduationYear.trim(),
+        cgpa: form.cgpa.trim() || 'N/A',
         currentStatus: form.currentStatus,
-        currentEmployer: form.currentEmployer || '',
-        currentRole: form.currentRole || '',
-        totalExperience: form.totalExperience,
-        relevantExperience: form.relevantExperience || 'N/A',
-        expectedSalary: form.expectedSalary,
+        currentEmployer: form.currentEmployer.trim() || undefined,
+        currentRole: form.currentRole.trim() || undefined,
+        totalExperience: form.totalExperience.trim(),
+        relevantExperience: form.relevantExperience.trim() || 'N/A',
+        expectedSalary: form.expectedSalary.trim(),
         availability: form.availability,
         preferredCompany: vacancy?.companyId || '',
         preferredDepartment: vacancy?.department || '',
         vacancyId: vacancy?.id || null,
+        reference: ref,
       };
 
-      const result = await api.submitApplication(formData);
-      const backendReference = result.reference || generateReference();
-      setReference(backendReference);
+      // 3. Submit candidate record
+      const response = await api.submitApplication(formData);
+      const candidateId = response.id;
 
-      const newCandidate: Candidate = {
-        id: result.id || `c-${Date.now()}`,
-        fullName: form.fullName,
-        email: form.email,
-        phone: form.phone,
-        altPhone: form.altPhone || undefined,
-        city: form.city,
-        nationality: form.nationality,
-        highestQualification: form.qualification,
-        fieldOfStudy: form.fieldOfStudy,
-        institution: form.institution,
-        graduationYear: form.graduationYear,
-        cgpa: form.cgpa || 'N/A',
-        currentStatus: form.currentStatus,
-        currentEmployer: form.currentEmployer || undefined,
-        currentRole: form.currentRole || undefined,
-        totalExperience: form.totalExperience,
-        relevantExperience: form.relevantExperience || 'N/A',
-        expectedSalary: form.expectedSalary,
-        availability: form.availability,
-        preferredCompany: vacancy?.companyId || '',
-        preferredDepartment: vacancy?.department || '',
-        vacancyId: vacancy?.id,
-        status: 'Submitted',
-        submittedAt: new Date().toISOString(),
-        documents: [
-          { name: `${form.fullName.replace(/\s/g, '_')}_CV.pdf`, type: 'PDF', size: '284 KB' },
-          { name: 'Cover_Letter.pdf', type: 'PDF', size: '112 KB' },
-        ],
-        notes: [],
-        reference: backendReference,
-        company: company ? { id: company.id, name: company.name, shortName: company.shortName } : undefined,
-        vacancy: vacancy ? { id: vacancy.id, title: vacancy.title, department: vacancy.department } : undefined,
-      };
+      // 4. Upload files (with detailed error handling)
+      const extraDocs = [
+        ...(coverLetterFile ? [coverLetterFile] : []),
+        ...academicFiles,
+        ...experienceFiles,
+        ...supportingFiles,
+      ];
 
-      addCandidate(newCandidate);
+      if (cvFile && candidateId) {
+        try {
+          const uploadResult = await api.uploadDocuments(candidateId, cvFile, extraDocs);
+          console.log('✅ Files uploaded:', uploadResult);
+
+          if (extraDocs.length > 0) {
+            toast.success(
+              `Application submitted with ${1 + extraDocs.length} file${
+                1 + extraDocs.length === 1 ? '' : 's'
+              }`
+            );
+          }
+        } catch (uploadErr) {
+          console.error('❌ File upload failed:', uploadErr);
+          const msg = uploadErr instanceof Error ? uploadErr.message : 'Unknown error';
+          toast.warning(`Application submitted, but file upload failed: ${msg}`, {
+            duration: 8000,
+          });
+        }
+      }
+
+      // 5. Refresh candidates and finish
+      await refreshCandidates();
       setStep(5);
       toast.success('Application submitted successfully!');
     } catch (error) {
-      console.error('Submission error:', error);
-      toast.error('Failed to submit application. Please try again.');
+      console.error('Submit error:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to submit application'
+      );
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -207,8 +284,11 @@ export function ApplicationForm({
     setStep(1);
     setReference('');
     setErrors({});
-    setVacancy(null);
-    setCompany(null);
+    setCvFile(null);
+    setCoverLetterFile(null);
+    setAcademicFiles([]);
+    setExperienceFiles([]);
+    setSupportingFiles([]);
     onOpenChange(false);
   };
 
@@ -217,19 +297,30 @@ export function ApplicationForm({
     navigate(page);
   };
 
+  // Loading state
+  if (loading && open) {
+    return (
+      <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
+        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto p-0 scrollbar-thin">
+          <div className="flex items-center justify-center p-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto p-0 scrollbar-thin">
         <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle className="font-serif text-xl">
-            {step === 5 ? 'Application Submitted' : loadingVacancy ? 'Loading…' : `Apply: ${vacancy?.title ?? 'Role'}`}
+            {step === 5 ? 'Application Submitted' : `Apply: ${vacancy?.title || 'Position'}`}
           </DialogTitle>
           <DialogDescription>
             {step === 5
               ? 'Your application has been received'
-              : loadingVacancy
-              ? 'Fetching vacancy details…'
-              : `${company?.name ?? ''} · ${vacancy?.location ?? ''} · Step ${step} of 4`}
+              : `${company?.name || ''} · ${vacancy?.location || ''} · Step ${step} of 4`}
           </DialogDescription>
         </DialogHeader>
 
@@ -253,12 +344,22 @@ export function ApplicationForm({
                       >
                         {isDone ? <Check className="h-4 w-4" /> : <s.icon className="h-4 w-4" />}
                       </div>
-                      <span className={cn('text-[10px] font-medium uppercase tracking-wide', isActive ? 'text-foreground' : 'text-muted-foreground')}>
+                      <span
+                        className={cn(
+                          'text-[10px] font-medium uppercase tracking-wide',
+                          isActive ? 'text-foreground' : 'text-muted-foreground'
+                        )}
+                      >
                         {s.label}
                       </span>
                     </div>
                     {i < 3 && (
-                      <div className={cn('mx-1 h-0.5 flex-1 rounded-full transition-colors', isDone ? 'bg-success' : 'bg-border')} />
+                      <div
+                        className={cn(
+                          'mx-1 h-0.5 flex-1 rounded-full transition-colors',
+                          isDone ? 'bg-success' : 'bg-border'
+                        )}
+                      />
                     )}
                   </div>
                 );
@@ -267,228 +368,371 @@ export function ApplicationForm({
           </div>
         )}
 
-        {/* Loading state */}
-        {loadingVacancy && step < 5 ? (
-          <div className="flex items-center justify-center px-6 py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="px-6 py-5 space-y-5">
-
-            {/* Step 1 – Personal Information */}
-            {step === 1 && (
-              <>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Full Name" required error={errors.fullName}>
-                    <Input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} placeholder="Jane Doe" />
-                  </Field>
-                  <Field label="Email" required error={errors.email}>
-                    <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="jane@email.com" />
-                  </Field>
-                  <Field label="Phone" required error={errors.phone}>
-                    <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+971 50 123 4567" />
-                  </Field>
-                  <Field label="Alternate Phone" error={errors.altPhone}>
-                    <Input value={form.altPhone} onChange={(e) => set('altPhone', e.target.value)} placeholder="+971 50 000 0000" />
-                  </Field>
-                  <Field label="Current City" required error={errors.city}>
-                    <Input value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="Dubai, UAE" />
-                  </Field>
-                  <Field label="Nationality" required error={errors.nationality}>
-                    <Input value={form.nationality} onChange={(e) => set('nationality', e.target.value)} placeholder="UAE" />
-                  </Field>
-                  <Field label="ID Type" error={errors.idType}>
-                    <Select value={form.idType} onValueChange={(v) => set('idType', v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="National ID">National ID</SelectItem>
-                        <SelectItem value="Passport">Passport</SelectItem>
-                        <SelectItem value="Residence Visa">Residence Visa</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="ID Number" error={errors.idNumber}>
-                    <Input value={form.idNumber} onChange={(e) => set('idNumber', e.target.value)} placeholder="784-XXXX-XXXXXXX-X" />
-                  </Field>
-                </div>
-              </>
-            )}
-
-            {/* Step 2 – Academic Background */}
-            {step === 2 && (
-              <>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Highest Qualification" required error={errors.qualification}>
-                    <Select value={form.qualification} onValueChange={(v) => set('qualification', v)}>
-                      <SelectTrigger><SelectValue placeholder="Select qualification" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="High School">High School</SelectItem>
-                        <SelectItem value="Diploma">Diploma</SelectItem>
-                        <SelectItem value="Bachelor's">Bachelor's</SelectItem>
-                        <SelectItem value="Master's">Master's</SelectItem>
-                        <SelectItem value="PhD">PhD</SelectItem>
-                        <SelectItem value="Professional Certification">Professional Certification</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Field of Study" required error={errors.fieldOfStudy}>
-                    <Input value={form.fieldOfStudy} onChange={(e) => set('fieldOfStudy', e.target.value)} placeholder="Business Administration" />
-                  </Field>
-                  <Field label="Institution" required error={errors.institution}>
-                    <Input value={form.institution} onChange={(e) => set('institution', e.target.value)} placeholder="University of Dubai" />
-                  </Field>
-                  <Field label="Graduation Year" required error={errors.graduationYear}>
-                    <Input value={form.graduationYear} onChange={(e) => set('graduationYear', e.target.value)} placeholder="2020" />
-                  </Field>
-                  <Field label="CGPA / Grade" error={errors.cgpa}>
-                    <Input value={form.cgpa} onChange={(e) => set('cgpa', e.target.value)} placeholder="3.8 / 4.0" />
-                  </Field>
-                </div>
-                <Field label="Additional Certificates" error={errors.certificates}>
-                  <Textarea
-                    value={form.certificates}
-                    onChange={(e) => set('certificates', e.target.value)}
-                    placeholder="List any professional certifications, e.g. PMP, CFA, AWS…"
-                    className="min-h-[80px]"
+        {/* Form body */}
+        <div className="px-6 py-5">
+          {/* ─────────────────────────────
+              STEP 1: Personal
+          ───────────────────────────── */}
+          {step === 1 && (
+            <div className="space-y-4">
+              <h3 className="font-serif text-lg font-semibold">Personal Details</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Full Name" required error={errors.fullName}>
+                  <Input
+                    value={form.fullName}
+                    onChange={(e) => set('fullName', e.target.value)}
+                    placeholder="Jane Doe"
                   />
                 </Field>
-              </>
-            )}
+                <Field label="Email" required error={errors.email}>
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => set('email', e.target.value)}
+                    placeholder="jane@email.com"
+                  />
+                </Field>
+                <Field label="Primary Phone" required error={errors.phone}>
+                  <Input
+                    value={form.phone}
+                    onChange={(e) => set('phone', e.target.value)}
+                    placeholder="+971 50 123 4567"
+                  />
+                </Field>
+                <Field label="Alternative Phone">
+                  <Input
+                    value={form.altPhone}
+                    onChange={(e) => set('altPhone', e.target.value)}
+                    placeholder="Optional"
+                  />
+                </Field>
+                <Field label="Current City / Region" required error={errors.city}>
+                  <Input
+                    value={form.city}
+                    onChange={(e) => set('city', e.target.value)}
+                    placeholder="Dubai, UAE"
+                  />
+                </Field>
+                <Field label="Nationality" required error={errors.nationality}>
+                  <Input
+                    value={form.nationality}
+                    onChange={(e) => set('nationality', e.target.value)}
+                    placeholder="Emirati"
+                  />
+                </Field>
+                <Field label="Identity Type">
+                  <Select value={form.idType} onValueChange={(v) => set('idType', v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="National ID">National ID</SelectItem>
+                      <SelectItem value="Passport">Passport</SelectItem>
+                      <SelectItem value="Residence ID">Residence ID</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Identity Number">
+                  <Input
+                    value={form.idNumber}
+                    onChange={(e) => set('idNumber', e.target.value)}
+                    placeholder="Optional"
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
 
-            {/* Step 3 – Employment Details */}
-            {step === 3 && (
-              <>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Current Status" error={errors.currentStatus}>
-                    <Select value={form.currentStatus} onValueChange={(v) => set('currentStatus', v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Employed">Employed</SelectItem>
-                        <SelectItem value="Unemployed">Unemployed</SelectItem>
-                        <SelectItem value="Student">Student</SelectItem>
-                        <SelectItem value="Freelance">Freelance</SelectItem>
-                      </SelectContent>
-                    </Select>
+          {/* ─────────────────────────────
+              STEP 2: Academic
+          ───────────────────────────── */}
+          {step === 2 && (
+            <div className="space-y-4">
+              <h3 className="font-serif text-lg font-semibold">Academic Details</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Highest Qualification" required error={errors.qualification}>
+                  <Select
+                    value={form.qualification}
+                    onValueChange={(v) => set('qualification', v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {qualificationOptions.map((q) => (
+                        <SelectItem key={q} value={q}>
+                          {q}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Field of Study" required error={errors.fieldOfStudy}>
+                  <Input
+                    value={form.fieldOfStudy}
+                    onChange={(e) => set('fieldOfStudy', e.target.value)}
+                    placeholder="Civil Engineering"
+                  />
+                </Field>
+                <Field label="Institution" required error={errors.institution}>
+                  <Input
+                    value={form.institution}
+                    onChange={(e) => set('institution', e.target.value)}
+                    placeholder="University name"
+                  />
+                </Field>
+                <Field label="Graduation Year" required error={errors.graduationYear}>
+                  <Input
+                    value={form.graduationYear}
+                    onChange={(e) => set('graduationYear', e.target.value)}
+                    placeholder="2019"
+                  />
+                </Field>
+                <Field label="CGPA / Result">
+                  <Input
+                    value={form.cgpa}
+                    onChange={(e) => set('cgpa', e.target.value)}
+                    placeholder="3.8 / 4.0"
+                  />
+                </Field>
+                <div className="sm:col-span-2">
+                  <Field label="Professional Certificates">
+                    <Textarea
+                      value={form.certificates}
+                      onChange={(e) => set('certificates', e.target.value)}
+                      placeholder="PMP, CFA Level I, etc. (one per line)"
+                      className="min-h-[70px]"
+                    />
                   </Field>
-                  <Field label="Current Employer" error={errors.currentEmployer}>
-                    <Input value={form.currentEmployer} onChange={(e) => set('currentEmployer', e.target.value)} placeholder="Acme Corp" />
-                  </Field>
-                  <Field label="Current Role / Title" error={errors.currentRole}>
-                    <Input value={form.currentRole} onChange={(e) => set('currentRole', e.target.value)} placeholder="Senior Manager" />
-                  </Field>
-                  <Field label="Total Experience" required error={errors.totalExperience}>
-                    <Input value={form.totalExperience} onChange={(e) => set('totalExperience', e.target.value)} placeholder="5 years" />
-                  </Field>
-                  <Field label="Relevant Experience" error={errors.relevantExperience}>
-                    <Input value={form.relevantExperience} onChange={(e) => set('relevantExperience', e.target.value)} placeholder="3 years" />
-                  </Field>
-                  <Field label="Expected Salary" required error={errors.expectedSalary}>
-                    <Input value={form.expectedSalary} onChange={(e) => set('expectedSalary', e.target.value)} placeholder="AED 25,000 / mo" />
-                  </Field>
-                  <Field label="Availability" required error={errors.availability}>
-                    <Select value={form.availability} onValueChange={(v) => set('availability', v)}>
-                      <SelectTrigger><SelectValue placeholder="When can you start?" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Immediate">Immediate</SelectItem>
-                        <SelectItem value="2 weeks">2 weeks</SelectItem>
-                        <SelectItem value="1 month notice">1 month notice</SelectItem>
-                        <SelectItem value="2 months notice">2 months notice</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </div>
-              </>
-            )}
-
-            {/* Step 4 – Documents */}
-            {step === 4 && (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Upload the required documents below. Accepted formats: PDF, DOC, DOCX.
-                </p>
-                <div className="space-y-4">
-                  <div>
-                    <p className="mb-2 text-sm font-medium">CV / Resume <span className="text-destructive">*</span></p>
-                    <Dropzone label="CV / Resume" required accept=".pdf,.doc,.docx" multiple={false} />
-                  </div>
-                  <div>
-                    <p className="mb-2 text-sm font-medium">Cover Letter</p>
-                    <Dropzone label="Cover Letter" accept=".pdf,.doc,.docx" multiple={false} />
-                  </div>
-                  {vacancy?.documents && vacancy.documents.length > 0 && (
-                    <div className="rounded-lg border border-accent/30 bg-accent/5 p-4">
-                      <p className="mb-2 text-sm font-semibold">Additional required documents for this role:</p>
-                      <ul className="space-y-1">
-                        {vacancy.documents.map((doc, i) => (
-                          <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <div className="h-1.5 w-1.5 rounded-full bg-accent" />
-                            {doc}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* Step 5 – Success */}
-            {step === 5 && (
-              <div className="py-8 text-center">
-                <div className="mb-5 flex h-16 w-16 mx-auto items-center justify-center rounded-full bg-success/10 text-success">
-                  <PartyPopper className="h-8 w-8" />
-                </div>
-                <h2 className="font-serif text-2xl font-semibold tracking-tight">Application Received!</h2>
-                <p className="mt-2 text-muted-foreground">
-                  Thank you, {form.fullName.split(' ')[0]}. We'll review your application and be in touch soon.
-                </p>
-                <div className="mx-auto mt-6 max-w-xs">
-                  <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Your Reference Number</p>
-                  <div className="flex items-center justify-between rounded-lg border-2 border-accent/40 bg-accent/5 px-4 py-3">
-                    <span className="font-mono text-lg font-bold tracking-wider text-accent">#{reference}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => { navigator.clipboard.writeText(reference); toast.success('Copied!'); }}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="mt-8 flex justify-center gap-3">
-                  <Button variant="outline" onClick={() => closeAndNavigate('home')}>
-                    <Home className="mr-2 h-4 w-4" /> Home
-                  </Button>
-                  <Button onClick={() => closeAndNavigate('vacancies')} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                    Browse More Jobs
-                  </Button>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-          </div>
-        )}
+          {/* ─────────────────────────────
+              STEP 3: Employment
+          ───────────────────────────── */}
+          {step === 3 && (
+            <div className="space-y-4">
+              <h3 className="font-serif text-lg font-semibold">Employment Details</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Current Status">
+                  <Select
+                    value={form.currentStatus}
+                    onValueChange={(v) => set('currentStatus', v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Current Employer">
+                  <Input
+                    value={form.currentEmployer}
+                    onChange={(e) => set('currentEmployer', e.target.value)}
+                    placeholder="Company name"
+                  />
+                </Field>
+                <Field label="Current Role">
+                  <Input
+                    value={form.currentRole}
+                    onChange={(e) => set('currentRole', e.target.value)}
+                    placeholder="Senior Manager"
+                  />
+                </Field>
+                <Field label="Total Experience (Years)" required error={errors.totalExperience}>
+                  <Input
+                    value={form.totalExperience}
+                    onChange={(e) => set('totalExperience', e.target.value)}
+                    placeholder="8 years"
+                  />
+                </Field>
+                <Field label="Relevant Experience (Years)">
+                  <Input
+                    value={form.relevantExperience}
+                    onChange={(e) => set('relevantExperience', e.target.value)}
+                    placeholder="6 years"
+                  />
+                </Field>
+                <Field label="Availability Period" required error={errors.availability}>
+                  <Select
+                    value={form.availability}
+                    onValueChange={(v) => set('availability', v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availabilityOptions.map((a) => (
+                        <SelectItem key={a} value={a}>
+                          {a}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Expected Salary" required error={errors.expectedSalary}>
+                  <Input
+                    value={form.expectedSalary}
+                    onChange={(e) => set('expectedSalary', e.target.value)}
+                    placeholder="AED 25,000 / mo"
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
+
+          {/* ─────────────────────────────
+              STEP 4: Documents
+          ───────────────────────────── */}
+          {step === 4 && (
+            <div className="space-y-4">
+              <h3 className="font-serif text-lg font-semibold">Document Uploads</h3>
+              <p className="text-sm text-muted-foreground">
+                Upload your documents in PDF, DOC, or DOCX format. Max 25MB per file.
+                <span className="ml-1 font-medium text-destructive">
+                  CV / Resume is required.
+                </span>
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Dropzone
+                    label="CV / Resume"
+                    required
+                    accept=".pdf,.doc,.docx"
+                    multiple={false}
+                    maxSizeMB={25}
+                    onFilesSelected={(files) => setCvFile(files[0] || null)}
+                  />
+                  {errors.cvFile && (
+                    <p className="mt-1 text-xs text-destructive">{errors.cvFile}</p>
+                  )}
+                </div>
+                <Dropzone
+                  label="Cover Letter"
+                  accept=".pdf,.doc,.docx"
+                  multiple={false}
+                  maxSizeMB={25}
+                  onFilesSelected={(files) => setCoverLetterFile(files[0] || null)}
+                />
+                <Dropzone
+                  label="Academic Certificates"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  multiple={true}
+                  maxSizeMB={25}
+                  onFilesSelected={(files) => setAcademicFiles(files)}
+                />
+                <Dropzone
+                  label="Experience Letters"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  multiple={true}
+                  maxSizeMB={25}
+                  onFilesSelected={(files) => setExperienceFiles(files)}
+                />
+                <div className="sm:col-span-2">
+                  <Dropzone
+                    label="Supporting Documents"
+                    description="Portfolio, recommendations, or other relevant files"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip"
+                    multiple={true}
+                    maxSizeMB={25}
+                    onFilesSelected={(files) => setSupportingFiles(files)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─────────────────────────────
+              STEP 5: Success
+          ───────────────────────────── */}
+          {step === 5 && (
+            <div className="flex flex-col items-center py-6 text-center">
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-success">
+                <PartyPopper className="h-8 w-8" />
+              </div>
+              <h3 className="font-serif text-2xl font-semibold">Application Received!</h3>
+              <p className="mt-2 max-w-md text-muted-foreground">
+                Thank you, {form.fullName.split(' ')[0]}. Your application for{' '}
+                <strong className="text-foreground">{vacancy?.title || 'position'}</strong> at{' '}
+                {company?.name || 'Ovid'} has been submitted successfully.
+              </p>
+
+              <div className="mt-6 w-full max-w-sm">
+                <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
+                  Your Application Reference
+                </p>
+                <div className="flex items-center justify-between rounded-lg border-2 border-accent/40 bg-accent/5 px-4 py-3">
+                  <span className="font-mono text-lg font-bold tracking-wider text-accent">
+                    #{reference}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(reference);
+                      toast.success('Reference copied!');
+                    }}
+                  >
+                    <Copy className="h-4 w-4" /> Copy
+                  </Button>
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Save this reference number. You'll need it for any follow-up inquiries.
+                  Our HR team will contact you within 5-7 business days.
+                </p>
+              </div>
+
+              <div className="mt-8 flex flex-wrap justify-center gap-3">
+                <Button variant="outline" onClick={() => closeAndNavigate('home')}>
+                  <Home className="mr-2 h-4 w-4" /> Back to Home
+                </Button>
+                <Button
+                  onClick={() => closeAndNavigate('vacancies')}
+                  className="bg-accent text-accent-foreground hover:bg-accent/90"
+                >
+                  <Search className="mr-2 h-4 w-4" /> Browse More Jobs
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Footer nav */}
-        {step < 5 && !loadingVacancy && (
+        {step < 5 && (
           <div className="flex items-center justify-between border-t border-border px-6 py-4">
-            <Button variant="ghost" onClick={back} disabled={step === 1}>
+            <Button variant="ghost" onClick={back} disabled={step === 1 || submitting}>
               <ChevronLeft className="mr-1 h-4 w-4" /> Back
             </Button>
+
             {step < 4 ? (
-              <Button onClick={next} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Button
+                onClick={next}
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+              >
                 Continue <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             ) : (
               <Button
                 onClick={submit}
+                disabled={submitting || !cvFile}
                 className="bg-success text-success-foreground hover:bg-success/90"
-                disabled={isSubmitting}
               >
-                {isSubmitting ? (
-                  <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Submitting…</>
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...
+                  </>
                 ) : (
-                  <><Check className="mr-1 h-4 w-4" /> Submit Application</>
+                  <>
+                    Submit Application <Check className="ml-1 h-4 w-4" />
+                  </>
                 )}
               </Button>
             )}
@@ -499,10 +743,19 @@ export function ApplicationForm({
   );
 }
 
+// ═════════════════════════════════════════════
+// Field component
+// ═════════════════════════════════════════════
 function Field({
-  label, required, error, children,
+  label,
+  required,
+  error,
+  children,
 }: {
-  label: string; required?: boolean; error?: string; children: React.ReactNode;
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: React.ReactNode;
 }) {
   return (
     <div>

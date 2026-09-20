@@ -1,45 +1,107 @@
+// frontend/src/App.tsx
 import { Suspense, lazy } from 'react';
 import { AppProvider, useApp } from '@/lib/app-context';
+import { AuthProvider } from '@/lib/auth-context';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { Toaster } from '@/components/ui/sonner';
 import { CandidateDrawer } from '@/components/CandidateDrawer';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
-const Home = lazy(() => import('@/pages/Home').then((module) => ({ default: module.Home })));
-const Vacancies = lazy(() => import('@/pages/Vacancies').then((module) => ({ default: module.Vacancies })));
-const VacancyDetail = lazy(() => import('@/pages/VacancyDetail').then((module) => ({ default: module.VacancyDetail })));
-const Companies = lazy(() => import('@/pages/Companies').then((module) => ({ default: module.Companies })));
-const TalentPool = lazy(() => import('@/pages/TalentPool').then((module) => ({ default: module.TalentPool })));
-const About = lazy(() => import('@/pages/About').then((module) => ({ default: module.About })));
-const Internships = lazy(() => import('@/pages/Internships').then((module) => ({ default: module.Internships })));
-const FAQs = lazy(() => import('@/pages/FAQs').then((module) => ({ default: module.FAQs })));
-const Contact = lazy(() => import('@/pages/Contact').then((module) => ({ default: module.Contact })));
-const Privacy = lazy(() => import('@/pages/Privacy').then((module) => ({ default: module.Privacy })));
-const HRDashboard = lazy(() => import('@/pages/hr/HRDashboard').then((module) => ({ default: module.HRDashboard })));
-const HRPipeline = lazy(() => import('@/pages/hr/HRPipeline').then((module) => ({ default: module.HRPipeline })));
-const HRTalent = lazy(() => import('@/pages/hr/HRTalent').then((module) => ({ default: module.HRTalent })));
+const Home = lazy(() => import('@/pages/Home').then((m) => ({ default: m.Home })));
+const Vacancies = lazy(() => import('@/pages/Vacancies').then((m) => ({ default: m.Vacancies })));
+const VacancyDetail = lazy(() => import('@/pages/VacancyDetail').then((m) => ({ default: m.VacancyDetail })));
+const Companies = lazy(() => import('@/pages/Companies').then((m) => ({ default: m.Companies })));
+const TalentPool = lazy(() => import('@/pages/TalentPool').then((m) => ({ default: m.TalentPool })));
+const About = lazy(() => import('@/pages/About').then((m) => ({ default: m.About })));
+const Internships = lazy(() => import('@/pages/Internships').then((m) => ({ default: m.Internships })));
+const FAQs = lazy(() => import('@/pages/FAQs').then((m) => ({ default: m.FAQs })));
+const Contact = lazy(() => import('@/pages/Contact').then((m) => ({ default: m.Contact })));
+const Privacy = lazy(() => import('@/pages/Privacy').then((m) => ({ default: m.Privacy })));
+const Login = lazy(() => import('@/pages/Login').then((m) => ({ default: m.Login })));
 
-function Router() {
+const HRDashboard = lazy(() => import('@/pages/hr/HRDashboard').then((m) => ({ default: m.HRDashboard })));
+const HRPipeline = lazy(() => import('@/pages/hr/HRPipeline').then((m) => ({ default: m.HRPipeline })));
+const HRTalent = lazy(() => import('@/pages/hr/HRTalent').then((m) => ({ default: m.HRTalent })));
+const HRVacancies = lazy(() => import('@/pages/hr/HRVacancies').then((m) => ({ default: m.HRVacancies })));
+const HRVacancyApprovals = lazy(() => import('@/pages/hr/HRVacancyApprovals').then((m) => ({ default: m.HRVacancyApprovals })));
+const HRUsers = lazy(() => import('@/pages/hr/HRUsers').then((m) => ({ default: m.HRUsers })));
+const HRCompanies = lazy(() => import('@/pages/hr/HRCompanies').then((m) => ({ default: m.HRCompanies })));
+
+
+// ─────────────────────────────────────────────
+// Renders ONLY the page content (no Navbar/Footer)
+// Used by both the public shell and the login shell
+// ─────────────────────────────────────────────
+function PageContent() {
+  const { page } = useApp();
+
+  switch (page) {
+    case 'home': return <Home />;
+    case 'vacancies': return <Vacancies />;
+    case 'vacancy-detail': return <VacancyDetail />;
+    case 'companies': return <Companies />;
+    case 'talent-pool': return <TalentPool />;
+    case 'about': return <About />;
+    case 'internships': return <Internships />;
+    case 'faqs': return <FAQs />;
+    case 'contact': return <Contact />;
+    case 'privacy': return <Privacy />;
+
+    case 'hr-dashboard':
+      return (
+        <ProtectedRoute allow={['system_admin', 'holding_hr', 'company_hr', 'management']}>
+          <HRDashboard />
+        </ProtectedRoute>
+      );
+    case 'hr-pipeline':
+      return (
+        <ProtectedRoute allow={['system_admin', 'holding_hr', 'company_hr', 'management']}>
+          <HRPipeline />
+        </ProtectedRoute>
+      );
+    case 'hr-talent':
+      return (
+        <ProtectedRoute allow={['system_admin', 'holding_hr', 'company_hr', 'management']}>
+          <HRTalent />
+        </ProtectedRoute>
+      );
+    case 'hr-vacancies':
+      return (
+        <ProtectedRoute allow={['system_admin', 'holding_hr', 'company_hr', 'management']}>
+          <HRVacancies />
+        </ProtectedRoute>
+      );
+
+    case 'hr-companies':
+  return (
+    <ProtectedRoute allow={['system_admin']}>
+      <HRCompanies />
+    </ProtectedRoute>
+  );  
+  case 'hr-users':
+  return (
+    <ProtectedRoute allow={['system_admin']}>
+      <HRUsers />
+    </ProtectedRoute>
+  );
+    case 'hr-approvals':
+      return (
+        <ProtectedRoute allow={['system_admin', 'holding_hr']}>
+          <HRVacancyApprovals />
+        </ProtectedRoute>
+      );
+
+    default:
+      return <Home />;
+  }
+}
+
+// ─────────────────────────────────────────────
+// Main layout — Navbar + content + Footer
+// ─────────────────────────────────────────────
+function MainLayout() {
   const { page, hrMode } = useApp();
-
-  const renderPage = () => {
-    switch (page) {
-      case 'home': return <Home />;
-      case 'vacancies': return <Vacancies />;
-      case 'vacancy-detail': return <VacancyDetail />;
-      case 'companies': return <Companies />;
-      case 'talent-pool': return <TalentPool />;
-      case 'about': return <About />;
-      case 'internships': return <Internships />;
-      case 'faqs': return <FAQs />;
-      case 'contact': return <Contact />;
-      case 'privacy': return <Privacy />;
-      case 'hr-dashboard': return <HRDashboard />;
-      case 'hr-pipeline': return <HRPipeline />;
-      case 'hr-talent': return <HRTalent />;
-      default: return <Home />;
-    }
-  };
 
   return (
     <div className="flex min-h-screen flex-col bg-background bg-grain">
@@ -53,7 +115,7 @@ function Router() {
           }
         >
           <div key={page} className="animate-fade-in">
-            {renderPage()}
+            <PageContent />
           </div>
         </Suspense>
       </main>
@@ -63,11 +125,46 @@ function Router() {
   );
 }
 
+// ─────────────────────────────────────────────
+// Full-screen layout — for login page
+// ─────────────────────────────────────────────
+function LoginLayout() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      }
+    >
+      <Login />
+    </Suspense>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Router — decides which layout to use
+// ─────────────────────────────────────────────
+function Router() {
+  const { page } = useApp();
+
+  if (page === 'login') {
+    return <LoginLayout />;
+  }
+
+  return <MainLayout />;
+}
+
+// ─────────────────────────────────────────────
+// App — wraps everything in providers
+// ─────────────────────────────────────────────
 function App() {
   return (
     <AppProvider>
-      <Router />
-      <Toaster position="top-right" richColors />
+      <AuthProvider>
+        <Router />
+        <Toaster position="top-right" richColors />
+      </AuthProvider>
     </AppProvider>
   );
 }

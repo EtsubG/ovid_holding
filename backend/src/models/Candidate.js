@@ -106,14 +106,16 @@ const Candidate = sequelize.define('Candidate', {
   status: {
     type: DataTypes.ENUM(
       'Submitted',
-      'Under Review',
-      'Shortlisted',
-      'Interview Scheduled',
-      'Reference Check',
-      'Offer Issued',
-      'Hired',
-      'Talent Pool',
-      'Rejected'
+    'Under Review',
+    'Longlisted',           // 🆕
+    'Shortlisted',
+    'Interview Scheduled',
+    'Reference Check',
+    'Selected',             // 🆕
+    'Offer Issued',
+    'Hired',
+    'Talent Pool',
+    'Rejected'
     ),
     allowNull: false,
     defaultValue: 'Submitted'

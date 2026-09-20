@@ -1,6 +1,14 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { type Candidate, type ApplicationStatus, pipelineStages } from '@/lib/data';
-import * as api from './api';
+// frontend/src/lib/app-context.tsx
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  type ReactNode,
+} from 'react';
+import { api } from '@/lib/api';
+import type { Candidate, ApplicationStatus } from './data';
 
 interface AppContextValue {
   page: string;
@@ -10,10 +18,10 @@ interface AppContextValue {
   setHrMode: (v: boolean) => void;
   candidates: Candidate[];
   loading: boolean;
+  refreshCandidates: () => Promise<void>;
   updateCandidateStatus: (id: string, status: ApplicationStatus) => Promise<void>;
   addCandidateNote: (id: string, text: string) => Promise<void>;
   addCandidate: (c: Candidate) => void;
-  refreshCandidates: () => Promise<void>;
   selectedCandidateId: string | null;
   setSelectedCandidateId: (id: string | null) => void;
 }
@@ -26,67 +34,88 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [hrMode, setHrMode] = useState(false);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  const fetchCandidates = useCallback(async () => {
+  const refreshCandidates = useCallback(async () => {
+    // 🆕 Only fetch if there's a token (HR is logged in)
+    const token = localStorage.getItem('ovid_auth_token');
+    if (!token) {
+      setCandidates([]);
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
       const data = await api.getCandidates();
       setCandidates(data);
     } catch (error) {
-      console.error('Failed to fetch candidates:', error);
+      console.error('Failed to load candidates:', error);
+      // If 401, clear candidates
+      if (error instanceof Error && error.message.includes('401')) {
+        setCandidates([]);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // 🆕 Listen for token changes (login/logout)
   useEffect(() => {
-    fetchCandidates();
-  }, [fetchCandidates]);
+    // Initial load
+    refreshCandidates();
 
-  const navigate = useCallback((newPage: string, newParams: Record<string, string> = {}) => {
-    setPage(newPage);
-    setParams(newParams);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+    // Listen for storage events (cross-tab) — auto-refresh on login/logout
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'ovid_auth_token') {
+        refreshCandidates();
+      }
+    };
 
-  const updateCandidateStatus = useCallback(async (id: string, status: ApplicationStatus) => {
-    try {
-      await api.updateCandidateStatus(id, status);
-      setCandidates((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, status } : c))
-      );
-    } catch (error) {
-      console.error('Failed to update status:', error);
-      throw error;
-    }
-  }, []);
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [refreshCandidates]);
 
-  const addCandidateNote = useCallback(async (id: string, text: string) => {
-    try {
-      await api.addCandidateNote(id, text);
-      setCandidates((prev) =>
-        prev.map((c) =>
-          c.id === id
-            ? {
-                ...c,
-                notes: [
-                  ...c.notes,
-                  { author: 'You', date: new Date().toISOString().split('T')[0], text },
-                ],
-              }
-            : c
-        )
-      );
-    } catch (error) {
-      console.error('Failed to add note:', error);
-      throw error;
-    }
-  }, []);
+  const navigate = useCallback(
+    (newPage: string, newParams: Record<string, string> = {}) => {
+      setPage(newPage);
+      setParams(newParams);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    []
+  );
 
-  const addCandidate = useCallback((c: Candidate) => {
-    setCandidates((prev) => [c, ...prev]);
-  }, []);
+  const updateCandidateStatus = useCallback(
+    async (id: string, status: ApplicationStatus) => {
+      try {
+        await api.updateCandidateStatus(id, status);
+        await refreshCandidates();
+      } catch (error) {
+        console.error('Failed to update status:', error);
+        throw error;
+      }
+    },
+    [refreshCandidates]
+  );
+
+  const addCandidateNote = useCallback(
+    async (id: string, text: string) => {
+      try {
+        await api.addCandidateNote(id, text);
+        await refreshCandidates();
+      } catch (error) {
+        console.error('Failed to add note:', error);
+        throw error;
+      }
+    },
+    [refreshCandidates]
+  );
+
+  const addCandidate = useCallback(
+    (c: Candidate) => {
+      refreshCandidates();
+    },
+    [refreshCandidates]
+  );
 
   return (
     <AppContext.Provider
@@ -98,10 +127,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setHrMode,
         candidates,
         loading,
+        refreshCandidates,
         updateCandidateStatus,
         addCandidateNote,
         addCandidate,
-        refreshCandidates: fetchCandidates,
         selectedCandidateId,
         setSelectedCandidateId,
       }}

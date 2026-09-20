@@ -1,6 +1,8 @@
+// frontend/src/components/Dropzone.tsx
 import { useState, useRef, type ReactNode } from 'react';
 import { UploadCloud, X, FileText, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface FileItem {
   name: string;
@@ -14,8 +16,9 @@ interface DropzoneProps {
   required?: boolean;
   multiple?: boolean;
   accept?: string;
-  icon?: ReactNode;
+  maxSizeMB?: number;  // ← NEW
   onFilesChange?: (files: FileItem[]) => void;
+  onFilesSelected?: (files: File[]) => void;
 }
 
 export function Dropzone({
@@ -24,7 +27,9 @@ export function Dropzone({
   required,
   multiple = true,
   accept = '.pdf,.doc,.docx',
+  maxSizeMB = 25,        // ← NEW default
   onFilesChange,
+  onFilesSelected,
 }: DropzoneProps) {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -32,41 +37,84 @@ export function Dropzone({
 
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
-    const newFiles: FileItem[] = Array.from(fileList).map((f) => ({
+
+    const MAX_SIZE = maxSizeMB * 1024 * 1024;
+    const realFiles: File[] = [];
+    const rejectedFiles: string[] = [];
+
+    Array.from(fileList).forEach((file) => {
+      if (file.size > MAX_SIZE) {
+        rejectedFiles.push(`${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+      } else {
+        realFiles.push(file);
+      }
+    });
+
+    if (rejectedFiles.length > 0) {
+      toast.error(
+        `These files are too large (max ${maxSizeMB}MB): ${rejectedFiles.join(', ')}`,
+        { duration: 6000 }
+      );
+    }
+
+    if (realFiles.length === 0) return;
+
+    const newFiles: FileItem[] = realFiles.map((f) => ({
       name: f.name,
       type: f.name.split('.').pop()?.toUpperCase() || 'FILE',
-      size: f.size > 1024 * 1024 ? `${(f.size / 1024 / 1024).toFixed(1)} MB` : `${Math.round(f.size / 1024)} KB`,
+      size:
+        f.size > 1024 * 1024
+          ? `${(f.size / 1024 / 1024).toFixed(1)} MB`
+          : `${Math.round(f.size / 1024)} KB`,
     }));
+
     const updated = multiple ? [...files, ...newFiles] : newFiles;
+    const updatedRealFiles = multiple ? [...realFiles] : realFiles;
+
     setFiles(updated);
     onFilesChange?.(updated);
+    onFilesSelected?.(updatedRealFiles);
   };
 
   const removeFile = (idx: number) => {
     const updated = files.filter((_, i) => i !== idx);
     setFiles(updated);
     onFilesChange?.(updated);
+    // Note: for accuracy, also update real files if you need removal tracking
   };
 
-  return (
+   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium">
         {label} {required && <span className="text-destructive">*</span>}
       </label>
-      {description && <p className="mb-2 text-xs text-muted-foreground">{description}</p>}
+      {description && (
+        <p className="mb-2 text-xs text-muted-foreground">{description}</p>
+      )}
       <div
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
         onDragLeave={() => setDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          handleFiles(e.dataTransfer.files);
+        }}
         onClick={() => inputRef.current?.click()}
         className={cn(
           'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors',
-          dragging ? 'border-accent bg-accent/5' : 'border-border hover:border-accent/50 hover:bg-secondary/30'
+          dragging
+            ? 'border-accent bg-accent/5'
+            : 'border-border hover:border-accent/50 hover:bg-secondary/30'
         )}
       >
         <UploadCloud className="mb-2 h-7 w-7 text-muted-foreground" />
         <p className="text-sm font-medium">Click to upload or drag & drop</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{accept.replace(/\./g, '').toUpperCase()} · Max 10MB</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {accept.replace(/\./g, '').toUpperCase()} · Max {maxSizeMB}MB
+        </p>
         <input
           ref={inputRef}
           type="file"

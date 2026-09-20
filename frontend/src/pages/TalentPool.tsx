@@ -16,7 +16,9 @@ import { Dropzone } from '@/components/Dropzone';
 import { toast } from 'sonner';
 
 export function TalentPool() {
-  const { addCandidate, navigate } = useApp();
+  // Add near your other useState declarations
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const { navigate, refreshCandidates } = useApp();
   const [submitted, setSubmitted] = useState(false);
   const [reference, setReference] = useState('');
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -24,6 +26,7 @@ export function TalentPool() {
   const [locations, setLocations] = useState<string[]>([]);
   const [jobCategories, setJobCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  
   const [form, setForm] = useState({
     fullName: '', email: '', phone: '', city: '',
     preferredCompany: '', department: '', jobCategory: '',
@@ -57,70 +60,96 @@ export function TalentPool() {
 
   const set = (key: string, value: string) => setForm((p) => ({ ...p, [key]: value }));
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.fullName.trim() || !form.email.trim() || !form.phone.trim()) {
-      toast.error('Please fill in your name, email, and phone.');
-      return;
-    }
-    try {
-      const result = await api.submitApplication({
-        fullName: form.fullName,
-        email: form.email,
-        phone: form.phone,
-        city: form.city || '',
-        nationality: '',
-        qualification: '',
-        fieldOfStudy: '',
-        institution: '',
-        graduationYear: '',
-        cgpa: '',
-        currentStatus: '',
-        totalExperience: form.yearsExperience || '',
-        relevantExperience: '',
-        expectedSalary: form.expectedSalary || '',
-        availability: form.availability || '',
-        preferredCompany: form.preferredCompany || '',
-        preferredDepartment: form.department || '',
-        vacancyId: null,
-      });
-      
-      const ref = result.reference || generateReference();
-      setReference(ref);
-      
-      const newCandidate: Candidate = {
-        id: result.id || `c-${Date.now()}`,
-        fullName: form.fullName,
-        email: form.email,
-        phone: form.phone,
-        city: form.city || '',
-        nationality: '',
-        highestQualification: '',
-        fieldOfStudy: '',
-        institution: '',
-        graduationYear: '',
-        cgpa: '',
-        currentStatus: '',
-        totalExperience: form.yearsExperience || '',
-        relevantExperience: '',
-        expectedSalary: form.expectedSalary || '',
-        availability: form.availability || '',
-        preferredCompany: form.preferredCompany || '',
-        preferredDepartment: form.department || '',
-        status: 'Talent Pool',
-        submittedAt: new Date().toISOString(),
-        documents: [{ name: `${form.fullName.replace(/\s/g, '_')}_CV.pdf`, type: 'PDF', size: '284 KB' }],
-        notes: [],
-        reference: ref,
-      };
-      addCandidate(newCandidate);
-      setSubmitted(true);
-      toast.success('Profile submitted to talent pool!');
-    } catch (error) {
-      console.error('Submission error:', error);
-      toast.error('Failed to submit profile. Please try again.');
-    }
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+   if (!form.fullName || !form.email || !form.phone) {
+    toast.error('Please fill in your name, email, and phone.');
+    return;
+  }
+
+  if (!cvFile) {
+    toast.error('Please upload your CV / Resume.');
+    return;
+  }
+
+  // ─────────────────────────────────────────
+  // FIX: Check file size BEFORE submitting
+  // ─────────────────────────────────────────
+  const MAX_SIZE = 25 * 1024 * 1024; // 25MB — match backend limit
+  if (cvFile.size > MAX_SIZE) {
+    toast.error(
+      `CV is too large (${(cvFile.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 25MB.`
+    );
+    return;
+  }
+
+  const year = new Date().getFullYear();
+  const num = Math.floor(1000 + Math.random() * 9000);
+  const ref = `OVID-${year}-${num}`;
+  setReference(ref);
+
+  const defaultCompanyId = form.preferredCompany || (companies[0]?.id ?? '');
+  const defaultDepartment = form.department || 'Administration';
+
+  if (!defaultCompanyId) {
+    toast.error('No companies available. Please try again later.');
+    return;
+  }
+
+  const formData = {
+    fullName: form.fullName,
+    email: form.email,
+    phone: form.phone,
+    city: form.city || 'Dubai, UAE',
+    nationality: 'N/A',
+    qualification: 'N/A',
+    fieldOfStudy: 'N/A',
+    institution: 'N/A',
+    graduationYear: 'N/A',
+    cgpa: 'N/A',
+    currentStatus: 'N/A',
+    totalExperience: form.yearsExperience || 'N/A',
+    relevantExperience: 'N/A',
+    expectedSalary: form.expectedSalary || 'N/A',
+    availability: form.availability || 'Immediate',
+    preferredCompany: defaultCompanyId,
+    preferredDepartment: defaultDepartment,
+    vacancyId: null,
+    reference: ref,
   };
+
+  try {
+  // 1. Submit candidate record first
+  const response = await api.submitApplication(formData);
+  const candidateId = response.id;
+
+  // 2. Upload the CV file
+  if (cvFile && candidateId) {
+    try {
+      const uploadResult = await api.uploadDocuments(candidateId, cvFile, []);
+      console.log('✅ CV uploaded:', uploadResult);
+    } catch (uploadErr) {
+      console.error('❌ CV upload failed:', uploadErr);
+      const msg =
+        uploadErr instanceof Error ? uploadErr.message : 'Unknown error';
+      toast.warning(`Profile submitted, but CV upload failed: ${msg}`, {
+        duration: 8000,
+      });
+    }
+  }
+
+  // 3. Refresh and show success
+  await refreshCandidates();
+  setSubmitted(true);
+  toast.success('Profile submitted to talent pool!');
+} catch (error) {
+  console.error('Talent pool submit error:', error);
+  toast.error(
+    error instanceof Error ? error.message : 'Failed to submit profile. Please try again.'
+  );
+}
+};
 
   if (submitted) {
     return (
@@ -295,7 +324,13 @@ export function TalentPool() {
                 className="min-h-[100px]"
               />
             </div>
-            <Dropzone label="CV / Resume" required accept=".pdf,.doc,.docx" multiple={false} />
+            <Dropzone
+  label="CV / Resume"
+  required
+  accept=".pdf,.doc,.docx"
+  multiple={false}
+  onFilesSelected={(files) => setCvFile(files[0] || null)}
+/>
           </section>
 
           <div className="flex justify-end border-t border-border pt-4">
