@@ -1,4 +1,4 @@
-// backend/src/app.js
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -22,7 +22,7 @@ const exportRoutes = require('./routes/exports');
 const interviewRoutes = require('./routes/interviews');
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5000;
 
 // ═════════════════════════════════════════════
 // GLOBAL MIDDLEWARE
@@ -33,9 +33,21 @@ app.use(
   })
 );
 
+// CORS — supports a comma-separated list of origins in FRONTEND_URL
+// e.g. FRONTEND_URL=http://localhost:5173,https://app.example.com
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, same-origin)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin '${origin}' not allowed`));
+    },
     credentials: true,
   })
 );
@@ -120,8 +132,14 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('✅ Database connected successfully.');
 
-    await sequelize.sync({ alter: true });
-    console.log('✅ Database synced successfully.');
+    // Only alter schema in development — never in production
+    if (process.env.NODE_ENV === 'development') {
+      await sequelize.sync({ alter: true });
+      console.log('✅ Database synced (alter) in development mode.');
+    } else {
+      await sequelize.sync();
+      console.log('✅ Database synced successfully.');
+    }
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);

@@ -1,7 +1,7 @@
 // frontend/src/lib/api.ts
 import type { Company, Vacancy, Candidate } from '@/lib/data';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_BASE = import.meta.env.VITE_API_URL;
 const TOKEN_KEY = 'ovid_auth_token';
 
 // Helper for API calls
