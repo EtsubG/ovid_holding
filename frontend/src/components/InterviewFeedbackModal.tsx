@@ -1,4 +1,4 @@
-// frontend/src/components/InterviewFeedbackModal.tsx
+
 import { useState } from 'react';
 import {
   Star, CheckCircle2, XCircle, HelpCircle, Loader2, Sparkles,

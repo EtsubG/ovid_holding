@@ -1,4 +1,4 @@
-// frontend/src/components/CandidateDrawer.tsx
+
 import { useMemo, useState, useEffect } from 'react';
 import {
   Mail, Phone, MapPin, FileText, Clock, Briefcase, GraduationCap,

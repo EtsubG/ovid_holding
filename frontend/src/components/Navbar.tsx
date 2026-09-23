@@ -1,4 +1,4 @@
-// frontend/src/components/Navbar.tsx
+
 import { useState } from 'react';
 import {
   Menu, Briefcase, LogOut, User as UserIcon, Shield, ChevronDown,

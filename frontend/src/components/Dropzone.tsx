@@ -1,4 +1,4 @@
-// frontend/src/components/Dropzone.tsx
+
 import { useState, useRef, type ReactNode } from 'react';
 import { UploadCloud, X, FileText, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';

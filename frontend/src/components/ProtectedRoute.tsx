@@ -1,4 +1,4 @@
-// frontend/src/components/ProtectedRoute.tsx
+
 import { useEffect, type ReactNode } from 'react';
 import { useAuth, type UserRole } from '@/lib/auth-context';
 import { useApp } from '@/lib/app-context';

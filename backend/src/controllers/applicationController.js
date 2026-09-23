@@ -1,4 +1,4 @@
-// backend/src/controllers/applicationController.js
+
 const { Candidate, Company, Vacancy } = require('../models');
 const { applicationSchema, statusUpdateSchema, noteSchema } = require('../validators');
 const { Op } = require('sequelize');

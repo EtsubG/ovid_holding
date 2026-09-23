@@ -1,4 +1,3 @@
-// frontend/src/lib/api.ts
 import type { Company, Vacancy, Candidate } from '@/lib/data';
 
 const API_BASE = import.meta.env.VITE_API_URL;

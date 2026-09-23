@@ -1,4 +1,4 @@
-// backend/src/controllers/exportController.js
+
 const { Candidate, Company, Vacancy } = require('../models');
 const { Op } = require('sequelize');
 const { generateCandidatesExcel } = require('../services/excelService');

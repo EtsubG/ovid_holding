@@ -1,4 +1,4 @@
-// frontend/src/components/InterviewList.tsx
+
 import { useState } from 'react';
 import {
   Calendar, Clock, Video, Phone, Building2, Users, Link as LinkIcon,

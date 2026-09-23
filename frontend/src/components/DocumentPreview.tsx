@@ -1,4 +1,4 @@
-// src/components/DocumentPreview.tsx
+
 import { useState, useEffect } from 'react';
 import { X, Download, ExternalLink } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';

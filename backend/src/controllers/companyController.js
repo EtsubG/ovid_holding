@@ -1,4 +1,4 @@
-// backend/src/controllers/companyController.js
+
 const { Company, Vacancy, Candidate } = require('../models');
 const { companySchema } = require('../validators');
 

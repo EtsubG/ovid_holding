@@ -1,4 +1,4 @@
-// backend/src/models/index.js
+
 const sequelize = require('../config/database');
 const Company = require('./Company');
 const Vacancy = require('./Vacancy');

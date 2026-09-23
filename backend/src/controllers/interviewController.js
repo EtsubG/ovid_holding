@@ -1,4 +1,4 @@
-// backend/src/controllers/interviewController.js
+
 const { Interview, Candidate, Vacancy, Company } = require('../models');
 const { Op } = require('sequelize');
 

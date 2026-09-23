@@ -1,4 +1,4 @@
-// frontend/src/components/InterviewScheduler.tsx
+
 import { useState, useEffect } from 'react';
 import {
   Calendar, Clock, Video, Phone, Users, Building2, Link as LinkIcon,

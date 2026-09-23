@@ -1,4 +1,4 @@
-// frontend/src/components/ApplicationForm.tsx
+
 import { useState, useEffect } from 'react';
 import {
   Check, ChevronRight, ChevronLeft, User, GraduationCap,
